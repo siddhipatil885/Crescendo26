@@ -6,6 +6,7 @@ import {
   TrendingUp, ClipboardList, Zap, ArrowUpRight
 } from 'lucide-react';
 import { subscribeToIssues, updateIssue } from '../../services/issues';
+import { ISSUE_STATUS, isInProgressStatus, isPendingStatus, isResolvedStatus, statusEquals } from '../../utils/constants';
 import { timeAgo } from '../../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../auth/AuthFlow';
@@ -13,9 +14,9 @@ import MapView from '../../components/map/MapView';
 
 const statusBadge = (status) => {
   const s = status?.toLowerCase();
-  if (s === 'pending' || s === 'open') return { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Pending' };
-  if (['in_progress', 'in progress', 'review', 'rti generated'].includes(s)) return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'In Progress' };
-  if (['resolved', 'completed', 'verified'].includes(s)) return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Resolved' };
+  if (isPendingStatus(s)) return { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Pending' };
+  if (isInProgressStatus(s)) return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'In Progress' };
+  if (isResolvedStatus(s)) return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Resolved' };
   return { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Unknown' };
 };
 
@@ -53,12 +54,20 @@ export default function AdminDashboard() {
 
   const stats = useMemo(() => {
     const total = issues.length;
-    const pending = issues.filter(i => ['pending', 'open'].includes(i.status?.toLowerCase())).length;
-    const inProgress = issues.filter(i => ['in_progress', 'in progress', 'review'].includes(i.status?.toLowerCase())).length;
-    const resolved = issues.filter(i => ['resolved', 'completed', 'verified'].includes(i.status?.toLowerCase())).length;
-    return { total, pending, inProgress, resolved };
-  }, [issues]);
+    const pending = issues.filter(i => isPendingStatus(i.status)).length;
+    const inProgress = issues.filter(i => isInProgressStatus(i.status)).length;
+    const resolved = issues.filter(i => isResolvedStatus(i.status)).length;
 
+    const today = new Date().setHours(0, 0, 0, 0);
+    const resolvedToday = issues.filter(i => {
+      if (!isResolvedStatus(i.status)) return false;
+      const ts = i.updatedAt || i.updated_at;
+      const updatedDate = ts?.toDate ? ts.toDate().setHours(0, 0, 0, 0) : null;
+      return updatedDate === today;
+    }).length;
+
+    return { total, pending, inProgress, resolved, resolvedToday };
+  }, [issues]);
   const categories = useMemo(() => {
     const cats = new Set(issues.map(i => i.category).filter(Boolean));
     return ['All', ...Array.from(cats)];
@@ -354,12 +363,16 @@ export default function AdminDashboard() {
         <h3 className="font-bold tracking-tight text-slate-900 text-xl flex items-center mb-8">
           <BarChart3 size={24} className="mr-2 text-indigo-600" /> Executive Analytics
         </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="border border-slate-100 rounded-2xl p-6 bg-slate-50 shadow-sm">
             <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Avg Resolution Time</h4>
             <div className="text-4xl font-extrabold text-slate-900 tracking-tight">42 hrs</div>
             <p className="text-sm text-emerald-600 mt-3 font-semibold flex items-center"><TrendingUp size={16} className="mr-1.5" /> 12% faster than last month</p>
+          </div>
+          <div className="border border-slate-100 rounded-2xl p-6 bg-slate-50 shadow-sm">
+            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Resolved Today</h4>
+            <div className="text-4xl font-extrabold text-slate-900 tracking-tight">{stats.resolvedToday}</div>
+            <p className="text-sm text-slate-600 mt-3 font-semibold flex items-center"><TrendingUp size={16} className="mr-1.5 text-slate-400" /> Daily throughput</p>
           </div>
 
           <div className="border border-slate-100 rounded-2xl p-6 bg-slate-50 shadow-sm">
@@ -612,7 +625,6 @@ export default function AdminDashboard() {
           </div>
         </>
       )}
-
     </div>
   );
 }
