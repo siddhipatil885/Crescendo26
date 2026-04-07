@@ -12,6 +12,7 @@ import {
   ISSUE_STATUS,
   REPORT_SOURCES,
 } from '../../utils/constants';
+import { getContractor } from '../../utils/contractor';
 import { trackIssue } from '../../utils/notifications';
 
 const EMPTY_AUTO_POPULATION = {
@@ -172,6 +173,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
       }
 
       setSubmitStatus('Submitting complaint...');
+      const contractor = getContractor(`${resolvedDraft.description} ${resolvedDraft.location}`);
       const createdIssue = await createIssue({
         category: resolvedDraft.civixCategory,
         subcategory: resolvedDraft.subcategory,
@@ -188,6 +190,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
         location: resolvedDraft.location,
         department: resolvedDraft.department,
         ...(routedPriority ? { priority: routedPriority } : {}),
+        contractor,
         photo_url: photoUrl,
         report_source: REPORT_SOURCES.APP,
         ...(userDetails.name && { reporter_name: userDetails.name }),

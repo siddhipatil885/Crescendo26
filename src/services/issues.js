@@ -69,6 +69,7 @@ export const createIssue = async (issueData) => {
       issue_subcategory: issueData.issue_subcategory || issueData.subcategory || '',
       severity: issueData.severity || '',
       priority: issueData.priority || '',
+      contractor: issueData.contractor || '',
       department,
       description: issueData.description || issueData.ai_description || '',
       ai_description: issueData.ai_description || issueData.description || '',
