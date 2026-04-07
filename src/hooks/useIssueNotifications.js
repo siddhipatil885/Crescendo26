@@ -34,7 +34,9 @@ export default function useIssueNotifications() {
             latestCache[issue.id] = nextStatus;
           });
 
-        setIssueStatusCache(latestCache);
+        if (!setIssueStatusCache(latestCache)) {
+          console.warn('useIssueNotifications could not persist issue status cache.');
+        }
       },
       (error) => {
         console.error('useIssueNotifications subscription error:', error);

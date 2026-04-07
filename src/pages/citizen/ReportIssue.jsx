@@ -272,6 +272,29 @@ export default function ReportIssue({ draftImage, onSubmit }) {
 
       <div style={{ backgroundColor: 'white', padding: '1.25rem', borderRadius: '16px', marginBottom: '1rem', border: '1px solid #E5E7EB' }}>
         <div className="flex-col gap-4">
+          <div className="flex-row justify-between items-center">
+            <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>
+              AI Analysis
+            </div>
+            <button
+              type="button"
+              onClick={refreshAI}
+              disabled={!reportFile || isRefreshingAI}
+              style={{
+                padding: '0.45rem 0.8rem',
+                borderRadius: '9999px',
+                backgroundColor: '#EEF2FF',
+                color: '#3147B0',
+                fontSize: '0.75rem',
+                fontWeight: '600',
+                opacity: !reportFile || isRefreshingAI ? 0.6 : 1,
+                cursor: !reportFile || isRefreshingAI ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {isRefreshingAI ? 'Re-analyzing...' : 'Re-analyze'}
+            </button>
+          </div>
+
           <div>
             <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase', marginBottom: '0.35rem' }}>Category</div>
             <select

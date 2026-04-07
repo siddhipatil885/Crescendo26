@@ -135,7 +135,7 @@ export default function ReportConfirmation({ issue, onTrackIssue }) {
       <button
         type="button"
         onClick={handleEnableNotifications}
-        disabled={notificationState === 'loading'}
+        disabled={notificationState === 'loading' || notificationState === 'enabled'}
         style={{
           backgroundColor: '#EEF2FF',
           color: '#4C5FD5',

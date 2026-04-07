@@ -22,6 +22,15 @@ import { getDepartmentForCategory, ISSUE_STATUS, REPORT_SOURCES } from "../utils
 
 const ISSUES_COLLECTION = "issues";
 
+function toClientDate(value) {
+  if (!value) return null;
+  if (typeof value?.toDate === 'function') return value.toDate();
+  if (typeof value?.seconds === 'number') return new Date(value.seconds * 1000);
+  if (value instanceof Date) return value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export const createIssue = async (issueData) => {
   try {
     const issuesRef = collection(db, ISSUES_COLLECTION);
@@ -32,6 +41,7 @@ export const createIssue = async (issueData) => {
     const category = issueData.category || 'Other';
     const department = issueData.department || getDepartmentForCategory(category);
     const photoUrl = issueData.photo_url || issueData.beforeImage || issueData.beforeImageUrl || null;
+    const storedDeadline = issueData.deadline || Timestamp.fromDate(deadlineClient);
     const timeline = issueData.timeline || [
       {
         type: 'reported',
@@ -44,11 +54,10 @@ export const createIssue = async (issueData) => {
     ];
 
     const newIssue = {
-      id: issueRef.id,
       claimToken,
       category,
       subcategory: issueData.subcategory || '',
-      issue_category: issueData.issue_category || '',
+      issue_category: issueData.issue_category || issueData.category || '',
       issue_subcategory: issueData.issue_subcategory || issueData.subcategory || '',
       department,
       description: issueData.description || issueData.ai_description || '',
@@ -71,22 +80,28 @@ export const createIssue = async (issueData) => {
       updatedAt: serverTimestamp(),
       reported_at: serverTimestamp(),
       updated_at: serverTimestamp(),
-      deadline: issueData.deadline || Timestamp.fromDate(deadlineClient),
+      deadline: storedDeadline,
       status: issueData.status || ISSUE_STATUS.OPEN,
       ...(issueData.reporter_name && { reporter_name: issueData.reporter_name }),
       ...(issueData.reporter_phone && { reporter_phone: issueData.reporter_phone }),
     };
     
     await setDoc(issueRef, newIssue);
-    saveToken(claimToken);
+
+    try {
+      saveToken(claimToken);
+    } catch (error) {
+      console.error('saveToken failed after issue creation:', error);
+    }
 
     return {
+      id: issueRef.id,
       ...newIssue,
       createdAt: createdAtClient,
       updatedAt: createdAtClient,
       reported_at: createdAtClient,
       updated_at: createdAtClient,
-      deadline: deadlineClient,
+      deadline: toClientDate(storedDeadline) || deadlineClient,
     };
   } catch (error) {
     console.error("Error creating issue:", error);
@@ -135,7 +150,7 @@ export const updateIssue = async (id, updates) => {
   try {
     const issueRef = doc(db, ISSUES_COLLECTION, id);
     const nextTimelineEvent = updates.timelineEvent;
-    const { timelineEvent, ...restUpdates } = updates;
+    const { timelineEvent, id: ignoredId, ...restUpdates } = updates;
 
     await updateDoc(issueRef, {
       ...restUpdates,

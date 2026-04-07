@@ -113,7 +113,6 @@ const STATUS_NORMALIZATION_MAP = {
 export const PENDING_ISSUE_STATUSES = [ISSUE_STATUS.PENDING, ISSUE_STATUS.OPEN];
 export const ACTIVE_ISSUE_STATUSES = [
   ISSUE_STATUS.IN_PROGRESS,
-  ISSUE_STATUS.IN_PROGRESS_ALIAS,
   ISSUE_STATUS.REVIEW,
 ];
 export const RESOLVED_ISSUE_STATUSES = [
@@ -137,12 +136,12 @@ export function isPendingStatus(status) {
 
 export function isInProgressStatus(status) {
   const normalized = normalizeIssueStatus(status);
-  return ACTIVE_ISSUE_STATUSES.some((candidate) => normalizeIssueStatus(candidate) === normalized);
+  return ACTIVE_ISSUE_STATUSES.includes(normalized);
 }
 
 export function isResolvedStatus(status) {
   const normalized = normalizeIssueStatus(status);
-  return RESOLVED_ISSUE_STATUSES.some((candidate) => normalizeIssueStatus(candidate) === normalized);
+  return RESOLVED_ISSUE_STATUSES.includes(normalized);
 }
 
 export function getDepartmentForCategory(category) {

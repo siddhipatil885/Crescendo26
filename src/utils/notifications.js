@@ -11,7 +11,13 @@ function readJson(key, fallback) {
 }
 
 function writeJson(key, value) {
-  localStorage.setItem(key, JSON.stringify(value));
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    console.warn(`Failed to persist local storage key "${key}":`, error);
+    return false;
+  }
 }
 
 export function getTrackedIssues() {
@@ -26,19 +32,23 @@ export function trackIssue(issueId) {
   const trackedIssues = getTrackedIssues();
 
   if (!trackedIssues.includes(issueId)) {
-    writeJson(TRACKED_ISSUES_KEY, [...trackedIssues, issueId]);
+    return writeJson(TRACKED_ISSUES_KEY, [...trackedIssues, issueId]);
   }
+
+  return true;
 }
 
 export function untrackIssue(issueId) {
-  writeJson(
+  return writeJson(
     TRACKED_ISSUES_KEY,
     getTrackedIssues().filter((trackedIssueId) => trackedIssueId !== issueId)
   );
 }
 
 export async function enableIssueNotifications(issueId) {
-  trackIssue(issueId);
+  if (!trackIssue(issueId)) {
+    console.warn(`Failed to persist tracked issue "${issueId}" in local storage.`);
+  }
 
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return {
@@ -81,7 +91,7 @@ export function getIssueStatusCache() {
 }
 
 export function setIssueStatusCache(cache) {
-  writeJson(ISSUE_STATUS_CACHE_KEY, cache);
+  return writeJson(ISSUE_STATUS_CACHE_KEY, cache);
 }
 
 export function notifyStatusChange(issue) {

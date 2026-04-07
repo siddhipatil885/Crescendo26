@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { MapPin, CheckCircle2, Clock, Loader2, LogOut } from 'lucide-react';
 import { subscribeToIssues, updateIssue } from '../../services/issues';
-import { ACTIVE_ISSUE_STATUSES, ISSUE_STATUS, isInProgressStatus, isPendingStatus, isResolvedStatus, statusEquals } from '../../utils/constants';
+import { ISSUE_STATUS, isInProgressStatus, isPendingStatus, isResolvedStatus, statusEquals } from '../../utils/constants';
 import { timeAgo } from '../../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../auth/AuthFlow';
@@ -194,7 +194,7 @@ export default function AdminDashboard() {
                       → In Progress
                     </button>
                   )}
-                  {[ISSUE_STATUS.PENDING, ISSUE_STATUS.OPEN, ...ACTIVE_ISSUE_STATUSES].some((status) => statusEquals(currentStatus, status)) && (
+                  {!isResolvedStatus(currentStatus) && (
                     <button
                       onClick={() => handleStatusChange(issue.id, ISSUE_STATUS.RESOLVED)}
                       style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', backgroundColor: '#047857', color: 'white', fontSize: '0.7rem', fontWeight: '600', border: 'none', cursor: 'pointer' }}
