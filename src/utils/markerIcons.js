@@ -1,13 +1,15 @@
 import L from 'leaflet';
+import { isPendingStatus, isInProgressStatus, isResolvedStatus } from './constants';
 
-const statusColors = {
-  pending: '#dc2626',
-  in_progress: '#f59e0b',
-  resolved: '#16a34a',
-};
+function getStatusColor(status) {
+  if (isPendingStatus(status)) return '#dc2626'; // rose (pending/open)
+  if (isInProgressStatus(status)) return '#f59e0b'; // amber (in progress)
+  if (isResolvedStatus(status)) return '#16a34a'; // emerald (resolved)
+  return '#6b7280'; // gray (unknown)
+}
 
 function createMarkerSVG(status) {
-  const color = statusColors[status] || '#6b7280';
+  const color = getStatusColor(status);
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 41" width="32" height="41">
       <path d="M16 0C9.39 0 4 5.39 4 12c0 8 12 29 12 29s12-21 12-29c0-6.61-5.39-12-12-12z"

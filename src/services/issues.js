@@ -51,7 +51,7 @@ export const createIssue = async (issueData) => {
     const storedDeadline = issueData.deadline || Timestamp.fromDate(deadlineClient);
     const timeline = issueData.timeline || [
       {
-        type: 'reported',
+        type: ISSUE_STATUS.REPORTED,
         title: 'Complaint reported',
         status: ISSUE_STATUS.OPEN,
         note: issueData.description || issueData.ai_description || '',

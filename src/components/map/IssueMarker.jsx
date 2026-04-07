@@ -1,6 +1,7 @@
 import { Marker, Popup } from 'react-leaflet';
 import { useState } from 'react';
 import { getMarkerIcon } from '../../utils/markerIcons';
+import { isPendingStatus, isInProgressStatus, isResolvedStatus } from '../../utils/constants';
 
 export default function IssueMarker({ issue }) {
   const [isImageBroken, setIsImageBroken] = useState(false);
@@ -37,11 +38,13 @@ export default function IssueMarker({ issue }) {
             </span>
             <span
               className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
-                status === 'pending'
+                isPendingStatus(status)
                   ? 'bg-rose-100 text-rose-700'
-                  : status === 'in_progress'
+                  : isInProgressStatus(status)
                     ? 'bg-amber-100 text-amber-700'
-                    : 'bg-emerald-100 text-emerald-700'
+                    : isResolvedStatus(status)
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-slate-100 text-slate-700'
               }`}
             >
               {statusDisplay}
