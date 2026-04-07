@@ -16,6 +16,7 @@ import {
 import { db, auth } from "./firebase";
 import { uploadToCloudinary } from "./storage";
 import { saveToken } from "../utils/token";
+import { hasUpvoted, markUpvoted } from "../utils/upvote";
 
 // ─────────────────────────────────────────────
 // REAL-TIME ISSUES HOOK (used in admin + public map)
@@ -179,9 +180,13 @@ export const reopenIssue = async (issueId, reason) => {
 // ─────────────────────────────────────────────
 
 export const upvoteIssue = async (issueId) => {
+    if (hasUpvoted(issueId)) {
+        throw new Error("You have already upvoted this issue");
+    }
     await updateDoc(doc(db, "issues", issueId), {
         upvotes: increment(1),
     });
+    markUpvoted(issueId);
 };
 
 // ─────────────────────────────────────────────

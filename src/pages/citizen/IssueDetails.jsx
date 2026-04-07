@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, UserCheck, ShieldCheck, MapPin, Loader2, Camera } from 'lucide-react';
 import { subscribeToIssue, updateIssue } from '../../services/issues';
-import { uploadImage } from '../../services/storage';
+import { uploadToCloudinary } from '../../services/storage';
 import { computeEscalationStatus, formatCountdown, getIssueImage } from '../../utils/escalation';
 
 export default function IssueDetails({ issueId, isAdmin }) {
