@@ -8,18 +8,24 @@ import { getThumbnailUrl } from "../../services/storage";
 // STATUS BADGE
 // ─────────────────────────────────────────────
 
+import { isResolvedStatus, isPendingStatus, isInProgressStatus } from "../../utils/constants";
+
 export const StatusBadge = ({ status }) => {
-    const s = String(status).toLowerCase();
-    const isPending = ['pending', 'open'].includes(s);
-    const isInProgress = ['in_progress', 'in progress', 'review'].includes(s);
+    const s = String(status || "").toLowerCase();
+    const resolved = isResolvedStatus(s);
+    const pending = isPendingStatus(s);
+    const inProgress = isInProgressStatus(s);
     
-    let colorClass = "bg-green-500/20 text-green-400 border-green-500/30";
-    let label = "Resolved";
+    let colorClass = "bg-slate-500/20 text-slate-400 border-slate-500/30";
+    let label = "Unknown";
     
-    if (isPending) {
+    if (resolved) {
+        colorClass = "bg-green-500/20 text-green-400 border-green-500/30";
+        label = "Resolved";
+    } else if (pending) {
         colorClass = "bg-red-500/20 text-red-400 border-red-500/30";
         label = "Pending";
-    } else if (isInProgress) {
+    } else if (inProgress) {
         colorClass = "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
         label = "In Progress";
     }

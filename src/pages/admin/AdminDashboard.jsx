@@ -3,7 +3,7 @@ import {
   MapPin, CheckCircle2, Clock, Loader2, LogOut, Search, Filter,
   LayoutDashboard, Map as MapIcon, FileText, Settings, X, ArrowRight, ShieldCheck,
   BarChart3, ListTodo, Download, AlertTriangle, Users, Bell,
-  TrendingUp, ClipboardList, Zap, ArrowUpRight
+  TrendingUp, ClipboardList, Zap, ArrowUpRight, Menu
 } from 'lucide-react';
 import { subscribeToIssues, updateIssue } from '../../services/issues';
 import { ISSUE_STATUS, isInProgressStatus, isPendingStatus, isResolvedStatus, statusEquals } from '../../utils/constants';
@@ -33,6 +33,10 @@ export default function AdminDashboard() {
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
+    return localStorage.getItem('admin_notifications') === 'true';
+  });
 
   const navigate = useNavigate();
   const { logout } = useAdminAuth();
@@ -51,6 +55,22 @@ export default function AdminDashboard() {
     );
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('admin_notifications', notificationsEnabled);
+  }, [notificationsEnabled]);
+
+  const handleExportCsv = () => {
+    alert("Exporting database to CSV... (Coming soon: Backend integration required)");
+  };
+
+  const handleInviteOfficer = () => {
+    alert("Opening invitation portal... (Coming soon)");
+  };
+
+  const toggleNotifications = (e) => {
+    setNotificationsEnabled(e.target.checked);
+  };
 
   const stats = useMemo(() => {
     const total = issues.length;
@@ -249,7 +269,11 @@ export default function AdminDashboard() {
             <h3 className="font-bold tracking-tight text-slate-900 flex items-center text-lg">
               Category Breakdown
             </h3>
-            <button className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center hover:bg-indigo-100 transition-colors">
+            <button 
+              onClick={handleExportCsv}
+              aria-label="Export categories to CSV"
+              className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center hover:bg-indigo-100 transition-colors"
+            >
               <Download size={14} className="mr-1.5" /> Export
             </button>
           </div>
@@ -344,7 +368,11 @@ export default function AdminDashboard() {
                     <div className="text-[11px] mt-0.5">{timeAgo(issue.createdAt || issue.reported_at)}</div>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button className="text-indigo-600 hover:text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-600 transition shadow-sm border border-transparent hover:border-indigo-700" onClick={() => setSelectedIssue(issue)}>
+                    <button 
+                      aria-label={`Update issue ${issue.id}`}
+                      className="text-indigo-600 hover:text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-600 transition shadow-sm border border-transparent hover:border-indigo-700" 
+                      onClick={() => setSelectedIssue(issue)}
+                    >
                       Update
                     </button>
                   </td>
@@ -387,7 +415,11 @@ export default function AdminDashboard() {
             <h4 className="font-bold text-indigo-900 text-lg">Generate Offline Report</h4>
             <p className="text-sm text-indigo-700/80 mt-1 font-medium">Export the comprehensive dataset tailored for municipal board review.</p>
           </div>
-          <button className="flex items-center px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-sm hover:bg-indigo-700 transition hover:shadow-md">
+          <button 
+            onClick={handleExportCsv}
+            aria-label="Export comprehensive report to CSV"
+            className="flex items-center px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-sm hover:bg-indigo-700 transition hover:shadow-md"
+          >
             <Download size={18} className="mr-2" /> Export to CSV
           </button>
         </div>
@@ -419,14 +451,23 @@ export default function AdminDashboard() {
           <div>
             <h4 className="text-base font-bold text-slate-900 mb-5 flex items-center"><AlertTriangle size={18} className="mr-2 text-amber-500" /> Notification Preferences</h4>
             <label className="flex items-center space-x-3 cursor-pointer group">
-              <input type="checkbox" className="form-checkbox h-5 w-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 transition" defaultChecked />
+              <input 
+                type="checkbox" 
+                checked={notificationsEnabled}
+                onChange={toggleNotifications}
+                className="form-checkbox h-5 w-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 transition" 
+              />
               <span className="text-slate-700 font-medium group-hover:text-slate-900 transition-colors">Alert me instantly regarding High-Priority categorizations</span>
             </label>
           </div>
 
           <div className="pt-8 border-t border-slate-100">
             <h4 className="text-base font-bold text-slate-900 mb-5 flex items-center"><Users size={18} className="mr-2 text-slate-400" /> Team Management</h4>
-            <button className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition shadow-sm hover:shadow flex items-center">
+            <button 
+              onClick={handleInviteOfficer}
+              aria-label="Invite a new administrative officer"
+              className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition shadow-sm hover:shadow flex items-center"
+            >
               Invite New Officer <ArrowUpRight size={16} className="ml-2 opacity-70" />
             </button>
             <p className="text-xs text-slate-400 mt-3 max-w-sm leading-relaxed">Invitations will automatically route new officers to your specific municipal department overview securely.</p>
@@ -458,6 +499,7 @@ export default function AdminDashboard() {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
+                aria-label={`Navigate to ${item.label}`}
                 className={`w-full flex items-center px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/50' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
               >
                 <item.icon size={18} className={`mr-3 ${activeTab === item.id ? 'opacity-100' : 'opacity-70'}`} /> {item.label}
@@ -469,6 +511,7 @@ export default function AdminDashboard() {
             </div>
             <button
               onClick={() => setActiveTab('settings')}
+              aria-label="Navigate to Settings"
               className={`w-full flex items-center px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/50' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
             >
               <Settings size={18} className={`mr-3 ${activeTab === 'settings' ? 'opacity-100' : 'opacity-70'}`} /> Settings & Personnel
@@ -478,6 +521,7 @@ export default function AdminDashboard() {
         <div className="p-4 border-t border-slate-800/50">
           <button
             onClick={handleLogout}
+            aria-label="Logout of administrative session"
             className="w-full flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-rose-500/10 rounded-xl font-semibold transition-colors group"
           >
             <LogOut size={18} className="mr-3 group-hover:text-rose-400 transition-colors" /> Logout Session
@@ -485,23 +529,79 @@ export default function AdminDashboard() {
         </div>
       </aside>
 
+      {/* MOBILE NAVIGATION - Slide-over Drawer */}
+      {mobileMenuOpen && (
+        <>
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-40 md:hidden" onClick={() => setMobileMenuOpen(false)}></div>
+          <div className="fixed inset-y-0 left-0 w-[280px] bg-slate-900 shadow-2xl z-50 md:hidden flex flex-col animate-in slide-in-from-left duration-300">
+            <div className="h-20 flex items-center justify-between px-6 border-b border-slate-800/50">
+              <h1 className="text-xl font-extrabold text-white tracking-tight flex items-center">
+                <ShieldCheck className="text-indigo-500 mr-2" size={22} /> CIVIX
+              </h1>
+              <button 
+                onClick={() => setMobileMenuOpen(false)}
+                aria-label="Close mobile menu"
+                className="text-slate-400 hover:text-white p-2"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <nav className="p-4 space-y-2 flex-1">
+              {[
+                { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+                { id: 'map', icon: MapIcon, label: 'Live Map' },
+                { id: 'issues', icon: ListTodo, label: 'Issue Management' },
+                { id: 'analytics', icon: BarChart3, label: 'Analytics & Reports' },
+                { id: 'settings', icon: Settings, label: 'Settings' },
+              ].map(item => (
+                <button
+                  key={item.id}
+                  onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
+                  aria-label={`Navigate to ${item.label}`}
+                  className={`w-full flex items-center px-4 py-4 rounded-xl font-bold transition-all ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
+                >
+                  <item.icon size={20} className="mr-4" /> {item.label}
+                </button>
+              ))}
+            </nav>
+            <div className="p-6 border-t border-slate-800/50 pb-10">
+              <button
+                onClick={handleLogout}
+                aria-label="Logout of session"
+                className="w-full flex items-center px-4 py-4 text-rose-400 bg-rose-500/10 rounded-xl font-bold transition-colors"
+              >
+                <LogOut size={20} className="mr-4" /> Logout
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50 relative">
 
         {/* TOP NAVBAR - Crisp White, subtle borders */}
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 relative z-10">
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-6 md:px-8 shrink-0 relative z-10">
           <div className="flex items-center">
-            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight capitalize">{activeTab.replace('-', ' ')}</h2>
+            <button 
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open mobile menu"
+              className="md:hidden mr-4 p-2 text-slate-500 hover:text-indigo-600 bg-slate-50 rounded-lg transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+            <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight capitalize">{activeTab.replace('-', ' ')}</h2>
             {loading && <Loader2 size={18} className="ml-4 animate-spin text-indigo-500" />}
           </div>
 
           <div className="flex items-center space-x-6">
 
             <div className="relative group hidden lg:block">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} aria-hidden="true" />
               <input
                 type="text"
                 placeholder="Search database..."
+                aria-label="Search incidents and database"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 pr-4 py-2.5 border border-transparent rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white w-64 bg-slate-100 text-slate-800 transition-all placeholder:text-slate-400"
@@ -510,7 +610,10 @@ export default function AdminDashboard() {
 
             <div className="h-6 w-px bg-slate-200 hidden lg:block"></div>
 
-            <button className="relative text-slate-400 hover:text-slate-600 transition-colors">
+            <button 
+              aria-label="View notifications"
+              className="relative text-slate-400 hover:text-slate-600 transition-colors"
+            >
               <Bell size={20} />
               <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
             </button>
@@ -576,14 +679,18 @@ export default function AdminDashboard() {
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Operational Status</label>
                 <div className="relative">
                   <select
-                    value={selectedIssue.status?.toLowerCase() || 'pending'}
+                    value={selectedIssue.status || ISSUE_STATUS.PENDING}
                     onChange={(e) => handleStatusChange(selectedIssue.id, e.target.value)}
                     disabled={isUpdating}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm cursor-pointer appearance-none"
                   >
-                    <option value="pending">⚠️ Pending Validation</option>
-                    <option value="in_progress">🚧 Action In Progress</option>
-                    <option value="resolved">✅ Resolved & Closed</option>
+                    <option value={ISSUE_STATUS.OPEN}>🚩 Open / New</option>
+                    <option value={ISSUE_STATUS.PENDING}>⚠️ Pending Validation</option>
+                    <option value={ISSUE_STATUS.IN_PROGRESS}>🚧 Action In Progress</option>
+                    <option value={ISSUE_STATUS.REVIEW}>🔍 Under Review</option>
+                    <option value={ISSUE_STATUS.RESOLVED}>✅ Resolved</option>
+                    <option value={ISSUE_STATUS.COMPLETED}>🏁 Completed</option>
+                    <option value={ISSUE_STATUS.VERIFIED}>🛡️ Verified by Citizen</option>
                   </select>
                 </div>
               </div>

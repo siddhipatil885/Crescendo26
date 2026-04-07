@@ -24,6 +24,7 @@
   "homepage": "https://github.com/siddhipatil885/Crescendo26#readme",
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "cors": "^2.8.6",
     "firebase": "^12.11.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.7.0",
