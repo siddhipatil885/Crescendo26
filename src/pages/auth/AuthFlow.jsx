@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../../services/firebase";
+import { db, auth } from "../../services/firebase";
+import { collection, query, where, getDocs } from "firebase/firestore";
 
 // ─────────────────────────────────────────────
 // useAdminAuth hook
@@ -16,12 +17,27 @@ export const useAdminAuth = () => {
         setError("");
         try {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
-            const tokenResult = await userCredential.user.getIdTokenResult();
+            const user = userCredential.user;
+            const tokenResult = await user.getIdTokenResult();
 
+            // 1. Check for hardcoded DEV whitelist (immediate unblock)
             const devAdminEmails = import.meta.env.VITE_DEV_ADMIN_EMAILS;
-            const isDevAdmin = devAdminEmails && devAdminEmails.split(',').includes(tokenResult.claims?.email || userCredential.user.email);
+            const isDevAdmin = devAdminEmails && devAdminEmails.split(',').includes(user.email);
 
-            if (tokenResult.claims?.admin || isDevAdmin) {
+            // 2. Check for custom Firebase admin claims
+            const hasAdminClaim = tokenResult.claims?.admin;
+
+            // 3. Fetch for all authorized users from database
+            let isDbAdmin = false;
+            try {
+                const q = query(collection(db, "admins"), where("email", "==", user.email));
+                const querySnapshot = await getDocs(q);
+                isDbAdmin = !querySnapshot.empty;
+            } catch (fsErr) {
+                console.warn("Firestore admin check failed, falling back to other methods", fsErr.message);
+            }
+
+            if (isDevAdmin || hasAdminClaim || isDbAdmin) {
                 onSuccess?.();
             } else {
                 await signOut(auth);
