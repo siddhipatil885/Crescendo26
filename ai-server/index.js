@@ -2,6 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const admin = require("firebase-admin");
+const rateLimit = require("express-rate-limit");
 
 const dotenvResult = dotenv.config();
 if (dotenvResult.error) {
@@ -33,6 +34,55 @@ try {
 }
 
 const db = admin.firestore();
+
+// Middleware: Authenticate Firebase ID Token
+async function authenticateToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    console.error('Token verification failed:', error.message);
+    return res.status(403).json({ error: 'Invalid or expired token' });
+  }
+}
+
+// Middleware: Authorize user role/scope
+function authorizeUser(req, res, next) {
+  // For now, allow any authenticated user
+  // In production, you might check for specific roles/claims
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  next();
+}
+
+// Middleware: Request logging
+function requestLogger(req, res, next) {
+  const timestamp = new Date().toISOString();
+  const userId = req.user?.uid || 'unauthenticated';
+  console.log(`[${timestamp}] ${req.method} ${req.path} - User: ${userId} - IP: ${req.ip}`);
+  next();
+}
+
+// Rate limiting: 100 requests per 15 minutes per user
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each user to 100 requests per windowMs
+  keyGenerator: (req) => req.user?.uid || req.ip, // Use user ID if authenticated, otherwise IP
+  message: {
+    error: 'Too many requests from this user, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function getDepartmentByCategory(category) {
   const map = {
@@ -114,12 +164,7 @@ Complaint: "${text}"
         "Gemini returned invalid JSON. Using parse fallback.",
         parseError.message
       );
-      return {
-        category: "Other",
-        department: getDepartmentByCategory("Other"),
-        priority: "Medium",
-        confidence: 0.9,
-      };
+      return fallbackResult;
     }
 
     const allowedCategories = new Set([
@@ -134,10 +179,10 @@ Complaint: "${text}"
 
     const category = allowedCategories.has(parsed?.category)
       ? parsed.category
-      : "Other";
+      : fallbackResult.category;
     const priority = allowedPriorities.has(parsed?.priority)
       ? parsed.priority
-      : "Medium";
+      : fallbackResult.priority;
 
     return {
       category,
@@ -154,7 +199,17 @@ Complaint: "${text}"
 const app = express();
 app.use(express.json());
 
-app.post("/classify", async (req, res) => {
+// Apply rate limiting to all routes
+app.use(limiter);
+
+// Apply authentication and logging to protected routes
+const protectedRoutes = express.Router();
+protectedRoutes.use(authenticateToken);
+protectedRoutes.use(authorizeUser);
+protectedRoutes.use(requestLogger);
+
+// Protected route: /classify
+protectedRoutes.post("/classify", async (req, res) => {
   const text = req.body?.text;
   if (!text || typeof text !== "string") {
     return res.status(400).json({ error: "Please provide text as a string." });
@@ -169,7 +224,8 @@ app.post("/classify", async (req, res) => {
   }
 });
 
-app.post("/report-issue", async (req, res) => {
+// Protected route: /report-issue
+protectedRoutes.post("/report-issue", async (req, res) => {
   const text = req.body?.text;
   if (!text || typeof text !== "string") {
     return res.status(400).json({ error: "Please provide text as a string." });
@@ -184,6 +240,7 @@ app.post("/report-issue", async (req, res) => {
       department: classification.department,
       priority: classification.priority,
       confidence: classification.confidence,
+      userId: req.user.uid, // Track which user created the issue
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
@@ -195,6 +252,10 @@ app.post("/report-issue", async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log("AI server running on port 3000");
+// Mount protected routes
+app.use('/api', protectedRoutes);
+
+const port = process.env.PORT || 3000;
+app.listen(port, () => {
+  console.log(`AI server running on port ${port}`);
 });

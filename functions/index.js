@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 
 admin.initializeApp();
 
@@ -38,52 +39,54 @@ exports.classifyIssue = functions.https.onCall((data, context) => {
     };
 });
 
-exports.onIssueCreate = functions.firestore
-    .document("issues/{issueId}")
-    .onCreate(async (snap, context) => {
-        const data = snap.data() || {};
-        const text = data.text;
+exports.onIssueCreate = onDocumentCreated("issues/{issueId}", async (event) => {
+    const snap = event.data;
+    if (!snap) {
+        console.log("No data associated with the event");
+        return;
+    }
 
-        if (!text || typeof text !== "string") {
-            console.warn("Issue text missing or invalid for document:", context.params.issueId);
-            return null;
+    const data = snap.data();
+    const text = data.text;
+
+    if (!text || typeof text !== "string") {
+        console.warn("Issue text missing or invalid for document:", event.params.issueId);
+        return;
+    }
+
+    try {
+        const response = await fetch(AI_API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text }),
+        });
+
+        if (!response.ok) {
+            console.error("AI API returned non-OK status:", response.status);
+            return;
         }
 
-        try {
-            const response = await fetch(AI_API_URL, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text }),
-            });
+        const result = await response.json();
+        const category = result?.category || "Other";
+        const department = result?.department || "General";
+        const priority = result?.priority || "Medium";
+        const confidence = typeof result?.confidence === "number" ? result.confidence : 0.9;
 
-            if (!response.ok) {
-                console.error("AI API returned non-OK status:", response.status);
-                return null;
-            }
+        await snap.ref.update({
+            category,
+            department,
+            priority,
+            confidence,
+        });
 
-            const result = await response.json();
-            const category = result?.category || "Other";
-            const department = result?.department || "General";
-            const priority = result?.priority || "Medium";
-            const confidence = typeof result?.confidence === "number" ? result.confidence : 0.9;
-
-            await snap.ref.update({
-                category,
-                department,
-                priority,
-                confidence,
-            });
-
-            console.log("Issue classified:", {
-                id: context.params.issueId,
-                category,
-                department,
-                priority,
-                confidence,
-            });
-        } catch (error) {
-            console.error("Failed to classify issue:", error.message);
-        }
-
-        return null;
-    });
+        console.log("Issue classified:", {
+            id: event.params.issueId,
+            category,
+            department,
+            priority,
+            confidence,
+        });
+    } catch (error) {
+        console.error("Failed to classify issue:", error.message);
+    }
+});
