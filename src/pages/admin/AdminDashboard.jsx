@@ -95,14 +95,27 @@ export default function AdminDashboard() {
       setIsUpdating(false);
     }
   };
-
   const executeBulkStatus = async (status) => {
     if (selectedRowIds.size === 0) return;
-    try {
-      await Promise.all(Array.from(selectedRowIds).map(id => updateIssue(id, { status })));
-      setSelectedRowIds(new Set());
-    } catch (e) {
-      alert("Bulk update failed.");
+    
+    const ids = Array.from(selectedRowIds);
+    const results = await Promise.allSettled(ids.map(id => updateIssue(id, { status })));
+    
+    const failed = [];
+    const newSet = new Set(selectedRowIds);
+    
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        failed.push(`ID ${ids[index]}: ${result.reason.message || result.reason}`);
+      } else {
+        newSet.delete(ids[index]);
+      }
+    });
+
+    setSelectedRowIds(newSet);
+
+    if (failed.length > 0) {
+      alert(`Bulk update completed with errors:\n${failed.join('\n')}`);
     }
   };
 

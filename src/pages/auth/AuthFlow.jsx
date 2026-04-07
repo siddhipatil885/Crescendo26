@@ -18,7 +18,10 @@ export const useAdminAuth = () => {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const tokenResult = await userCredential.user.getIdTokenResult();
 
-            if (tokenResult.claims.admin || import.meta.env.DEV) {
+            const devAdminEmails = import.meta.env.VITE_DEV_ADMIN_EMAILS;
+            const isDevAdmin = devAdminEmails && devAdminEmails.split(',').includes(tokenResult.claims?.email || userCredential.user.email);
+
+            if (tokenResult.claims?.admin || isDevAdmin) {
                 onSuccess?.();
             } else {
                 await signOut(auth);

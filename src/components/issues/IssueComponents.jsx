@@ -80,10 +80,14 @@ export const UpvoteButton = ({ issue }) => {
 
     const handleUpvote = async () => {
         if (voted) return;
-        await upvoteIssue(issue.id);
-        markUpvoted(issue.id);
-        setVoted(true);
-        setCount((c) => c + 1);
+        try {
+            await upvoteIssue(issue.id);
+            setVoted(true);
+            setCount((c) => c + 1);
+        } catch (error) {
+            console.error("Upvote failed:", error);
+            alert(error.message || "Failed to upvote");
+        }
     };
 
     return (

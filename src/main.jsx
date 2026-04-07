@@ -16,7 +16,10 @@ function ProtectedRoute({ children }) {
       if (u) {
         try {
           const tokenResult = await u.getIdTokenResult()
-          if (tokenResult.claims?.admin || import.meta.env.DEV) {
+          const devAdminEmails = import.meta.env.VITE_DEV_ADMIN_EMAILS;
+          const isDevAdmin = devAdminEmails && devAdminEmails.split(',').includes(tokenResult.claims?.email || u.email);
+          
+          if (tokenResult.claims?.admin || isDevAdmin) {
             setUser(u)
           } else {
             setUser(null)

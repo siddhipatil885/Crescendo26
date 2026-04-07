@@ -12,6 +12,7 @@ import {
     arrayUnion,
     increment,
     getDocs,
+    runTransaction
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import { uploadToCloudinary } from "./storage";
@@ -183,9 +184,16 @@ export const upvoteIssue = async (issueId) => {
     if (hasUpvoted(issueId)) {
         throw new Error("You have already upvoted this issue");
     }
-    await updateDoc(doc(db, "issues", issueId), {
-        upvotes: increment(1),
+    
+    await runTransaction(db, async (transaction) => {
+        const issueRef = doc(db, "issues", issueId);
+        const issueDoc = await transaction.get(issueRef);
+        if (!issueDoc.exists()) {
+            throw new Error("Issue does not exist!");
+        }
+        transaction.update(issueRef, { upvotes: increment(1) });
     });
+    
     markUpvoted(issueId);
 };
 
