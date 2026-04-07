@@ -1024,45 +1024,20 @@ protectedRoutes.use(authenticateToken);
 protectedRoutes.use(authorizeUser);
 protectedRoutes.use(requestLogger);
 
-// Stricter rate limiting for AI image analysis
-const analyzeImageLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  keyGenerator: (req) => req.user?.uid || req.ip,
-  message: { error: "Too many image analysis requests from this user, please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.post("/analyze-image", analyzeImageLimiter, async (req, res) => {
-  const imageBase64 = req.body?.imageBase64;
-  const mimeType = req.body?.mimeType;
-
-  if (!imageBase64 || typeof imageBase64 !== "string") {
-    return res.status(400).json({ error: "Please provide imageBase64 as a string." });
-  }
-
-  // Strict payload size enforcement before expensive processing
-  // 10MB Base64 string = ~7.5MB raw image data
-  if (Buffer.byteLength(imageBase64, "utf8") > 11 * 1024 * 1024) {
-    return res.status(413).json({ error: "Image payload exceeds maximum allowed size." });
+// Public route: /route-issue (AI routing + fallback)
+app.post("/route-issue", async (req, res) => {
+  const text = req.body?.text;
+  if (!text || typeof text !== "string") {
+    return res.status(400).json({ error: "Please provide text as a string." });
   }
 
   try {
-    const geminiResult = await analyzeImageWithGemini(imageBase64, mimeType);
-    return res.json(geminiResult);
+    const result = await classifyText(text);
+    return res.json(result);
   } catch (error) {
-    console.error("Gemini image analysis failed:", error.message);
+    console.error("Routing failed.", error.message);
+    return res.status(500).json({ error: "Failed to route issue." });
   }
-
-  try {
-    const huggingFaceResult = await analyzeImageWithHuggingFace(imageBase64, mimeType);
-    return res.json(huggingFaceResult);
-  } catch (error) {
-    console.error("HuggingFace image analysis failed:", error.message);
-  }
-
-  return res.json(FINAL_FALLBACK_ANALYSIS);
 });
 
 // Protected route: /classify

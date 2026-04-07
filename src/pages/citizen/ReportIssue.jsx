@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Loader2, Send } from 'lucide-react';
-import { analyzeIssueImage } from '../../services/gemini';
+import { routeIssueText } from '../../services/gemini';
 import { getCurrentLocation, reverseGeocode } from '../../services/geolocation';
 import { uploadToCloudinary } from '../../services/storage';
 import { createIssue } from '../../services/issues';
@@ -35,7 +35,7 @@ const EMPTY_USER_DETAILS = {
 export default function ReportIssue({ draftImage, onSubmit }) {
   const [isPreparing, setIsPreparing] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isRefreshingAI, setIsRefreshingAI] = useState(false);
+  const [isRoutingAI, setIsRoutingAI] = useState(false);
   const [error, setError] = useState('');
   const [submitStatus, setSubmitStatus] = useState('');
   const [autoData, setAutoData] = useState(EMPTY_AUTO_POPULATION);
@@ -110,37 +110,17 @@ export default function ReportIssue({ draftImage, onSubmit }) {
           neighbourhood: '',
         }));
 
-        let aiResult = null;
-        let aiErrorMessage = '';
-
-        try {
-          aiResult = await analyzeIssueImage(reportFile);
-        } catch (aiError) {
-          aiErrorMessage = aiError.message || 'AI analysis is unavailable right now. Please review the complaint details manually.';
-        }
-
-        if (cancelled) {
-          return;
-        }
-
-        const aiCategory = aiResult?.category || '';
-        const subcategory = aiResult?.subcategory || '';
-
         setAutoData({
           lat: location.lat,
           lng: location.lng,
           location: reverseLookup.displayName,
           neighbourhood: reverseLookup.neighbourhood,
-          issueType: aiResult?.issue_type || '',
-          aiCategory,
-          subcategory,
-          description: aiResult?.description || '',
-          severity: aiResult?.severity || '',
+          issueType: '',
+          aiCategory: '',
+          subcategory: '',
+          description: '',
+          severity: '',
         });
-
-        if (aiErrorMessage) {
-          setError(aiErrorMessage);
-        }
       } catch (autopopulateError) {
         if (!cancelled) {
           setError(autopopulateError.message || 'Failed to prepare complaint details.');
@@ -158,42 +138,6 @@ export default function ReportIssue({ draftImage, onSubmit }) {
       cancelled = true;
     };
   }, [reportFile]);
-
-  const refreshAI = async () => {
-    if (!reportFile) {
-      return;
-    }
-
-    setIsRefreshingAI(true);
-    setError('');
-
-    try {
-      const ai = await analyzeIssueImage(reportFile);
-      const nextAiCategory = ai.category || '';
-      const nextSubcategory = ai.subcategory || '';
-
-      setAutoData((current) => ({
-        ...current,
-        issueType: ai.issue_type || current.issueType,
-        aiCategory: nextAiCategory,
-        subcategory: nextSubcategory,
-        description: ai.description || current.description,
-        severity: ai.severity || current.severity,
-      }));
-      setOverrides((current) => ({
-        ...current,
-        aiCategory: '',
-        subcategory: '',
-        description: '',
-        issueType: '',
-        severity: '',
-      }));
-    } catch (refreshError) {
-      setError(refreshError.message || 'Failed to refresh AI analysis.');
-    } finally {
-      setIsRefreshingAI(false);
-    }
-  };
 
   const handleSubmit = async () => {
     if (!reportFile) {
@@ -213,6 +157,24 @@ export default function ReportIssue({ draftImage, onSubmit }) {
     try {
       const photoUrl = await uploadToCloudinary(reportFile);
 
+      setSubmitStatus('Routing complaint...');
+      setIsRoutingAI(true);
+      let routedDepartment = resolvedDraft.department;
+      let routedPriority = undefined;
+      try {
+        const routing = await routeIssueText(resolvedDraft.description);
+        if (routing?.department) {
+          routedDepartment = routing.department;
+        }
+        if (routing?.priority) {
+          routedPriority = routing.priority;
+        }
+      } catch (routingError) {
+        console.warn('AI routing failed. Falling back to category mapping.', routingError);
+      } finally {
+        setIsRoutingAI(false);
+      }
+
       setSubmitStatus('Submitting complaint...');
       const createdIssue = await createIssue({
         category: resolvedDraft.civixCategory,
@@ -228,7 +190,8 @@ export default function ReportIssue({ draftImage, onSubmit }) {
         lng: resolvedDraft.lng,
         neighbourhood: resolvedDraft.neighbourhood,
         location: resolvedDraft.location,
-        department: resolvedDraft.department,
+        department: routedDepartment,
+        ...(routedPriority ? { priority: routedPriority } : {}),
         photo_url: photoUrl,
         report_source: REPORT_SOURCES.APP,
         ...(userDetails.name && { reporter_name: userDetails.name }),
@@ -270,11 +233,11 @@ export default function ReportIssue({ draftImage, onSubmit }) {
         </div>
       )}
 
-      {(isPreparing || isRefreshingAI) && (
+      {(isPreparing || isRoutingAI) && (
         <div style={{ backgroundColor: '#EEF2FF', padding: '1rem', borderRadius: '16px', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#3147B0' }}>
           <Loader2 size={18} className="animate-spin" />
           <span style={{ fontSize: '0.9rem', fontWeight: '600' }}>
-            {isRefreshingAI ? 'Refreshing complaint details...' : 'Preparing complaint details...'}
+            {isRoutingAI ? 'Routing complaint details...' : 'Preparing complaint details...'}
           </span>
         </div>
       )}
@@ -292,23 +255,6 @@ export default function ReportIssue({ draftImage, onSubmit }) {
             <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>
               Complaint Details
             </div>
-            <button
-              type="button"
-              onClick={refreshAI}
-              disabled={!reportFile || isRefreshingAI}
-              style={{
-                padding: '0.45rem 0.8rem',
-                borderRadius: '9999px',
-                backgroundColor: '#EEF2FF',
-                color: '#3147B0',
-                fontSize: '0.75rem',
-                fontWeight: '600',
-                opacity: !reportFile || isRefreshingAI ? 0.6 : 1,
-                cursor: !reportFile || isRefreshingAI ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {isRefreshingAI ? 'Analyzing...' : 'Re-analyze'}
-            </button>
           </div>
 
           <div>
