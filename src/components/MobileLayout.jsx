@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Menu, LayoutDashboard, Map as MapIcon, PlusCircle, User, X } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { Menu, LayoutDashboard, Map as MapIcon, PlusCircle, Ticket, User, X } from 'lucide-react';
 
 export default function MobileLayout({
   children,
@@ -92,6 +93,7 @@ export default function MobileLayout({
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'map', label: 'Map', icon: MapIcon },
     { id: 'report', label: 'Report', icon: PlusCircle },
+    { id: 'track', label: 'Track Issue', icon: Ticket, to: '/track' },
     { id: 'profile', label: 'Profile', icon: User },
   ];
 
@@ -132,16 +134,29 @@ export default function MobileLayout({
               </button>
             </div>
             <nav className="mobile-menu-nav" aria-label="Mobile navigation">
-              {menuItems.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`mobile-menu-item ${activeTab === id ? 'active' : ''}`}
-                  onClick={() => handleMenuNavigation(id)}
-                >
-                  <Icon size={18} />
-                  <span>{label}</span>
-                </button>
+              {menuItems.map(({ id, label, icon: Icon, to }) => (
+                to ? (
+                  <NavLink
+                    key={id}
+                    to={to}
+                    className={({ isActive }) => `mobile-menu-item ${isActive ? 'active' : ''}`}
+                    style={{ textDecoration: 'none' }}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Icon size={18} />
+                    <span>{label}</span>
+                  </NavLink>
+                ) : (
+                  <button
+                    key={id}
+                    type="button"
+                    className={`mobile-menu-item ${activeTab === id ? 'active' : ''}`}
+                    onClick={() => handleMenuNavigation(id)}
+                  >
+                    <Icon size={18} />
+                    <span>{label}</span>
+                  </button>
+                )
               ))}
             </nav>
           </div>
@@ -212,6 +227,15 @@ export default function MobileLayout({
             <PlusCircle size={20} fill="#7C8FF0" color="white" />
             <span>Report</span>
           </button>
+
+          <NavLink
+            to="/track"
+            className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
+            style={{ textDecoration: 'none' }}
+          >
+            <Ticket size={20} />
+            <span>Track Issue</span>
+          </NavLink>
 
           <button
             className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}

@@ -573,14 +573,14 @@ function buildTemplateDescription(category, subcategory, labels = []) {
 
 function buildDescription(text, category, subcategory, labelHint = "") {
   const cleanedText = cleanDescription(text);
-  const labelList = sanitizeLabelList(labelHint || text);
   const cropped = cleanedText.split(" ").filter(Boolean).slice(0, 40).join(" ");
 
-  if (countWords(cropped) >= 8 && !looksLikeLabelList(cropped) && !isWeakDescription(cropped)) {
+  if (countWords(cropped) >= 4 && !looksLikeLabelList(cropped) && !isWeakDescription(cropped)) {
     return ensureSentence(cropped);
   }
 
-  return buildTemplateDescription(category, subcategory, labelList);
+  // The user explicitly requested: "if the ai isnt able to do it then just dont enter anything"
+  return "";
 }
 
 function normalizeImageAnalysis(category, subcategory, description, confidence, issueType, severity, labelHint = "") {
@@ -621,14 +621,9 @@ function normalizeCivicIssueAnalysis(payload, labels = [], confidence = 0.72) {
 }
 
 function classifyCaption(caption) {
-  const text = normalizeSpaces(caption).toLowerCase();
-  const matchedRule = IMAGE_KEYWORD_RULES.find((rule) => rule.keywords.some((keyword) => text.includes(keyword)));
-
-  if (!matchedRule) {
-    return FINAL_FALLBACK_ANALYSIS;
-  }
-
-  return normalizeImageAnalysis(matchedRule.category, matchedRule.subcategory, caption, 0.65);
+  // We matched keywords previously, but keyword-matching on ImageNet classes leads to extremely inaccurate civic outputs.
+  // The user requested no hardcoded text: "if the ai isnt able to do it then just dont enter anything"
+  return FINAL_FALLBACK_ANALYSIS;
 }
 
 function withTimeout(promise, ms, message) {
@@ -1029,45 +1024,42 @@ protectedRoutes.use(authenticateToken);
 protectedRoutes.use(authorizeUser);
 protectedRoutes.use(requestLogger);
 
-// Stricter rate limiting for AI image analysis
-const analyzeImageLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  keyGenerator: (req) => req.user?.uid || req.ip,
-  message: { error: "Too many image analysis requests from this user, please try again later." },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-app.post("/analyze-image", authenticateToken, analyzeImageLimiter, async (req, res) => {
-  const imageBase64 = req.body?.imageBase64;
-  const mimeType = req.body?.mimeType;
-
-  if (!imageBase64 || typeof imageBase64 !== "string") {
-    return res.status(400).json({ error: "Please provide imageBase64 as a string." });
+// Public route: /route-issue (AI routing + fallback)
+app.post("/route-issue", async (req, res) => {
+  const text = req.body?.text;
+  if (!text || typeof text !== "string") {
+    return res.status(400).json({ error: "Please provide text as a string." });
   }
 
-  // Strict payload size enforcement before expensive processing
-  // 10MB Base64 string = ~7.5MB raw image data
-  if (Buffer.byteLength(imageBase64, "utf8") > 11 * 1024 * 1024) {
-    return res.status(413).json({ error: "Image payload exceeds maximum allowed size." });
+  const trimmedText = text.trim();
+  if (!trimmedText) {
+    return res.status(400).json({ error: "Please provide a non-empty text string." });
+  }
+
+  const MAX_ROUTE_TEXT_LENGTH = 500;
+  const MAX_ROUTE_TEXT_BYTES = 2000;
+  if (trimmedText.length > MAX_ROUTE_TEXT_LENGTH) {
+    return res.status(400).json({ error: `Text exceeds ${MAX_ROUTE_TEXT_LENGTH} characters.` });
+  }
+  if (Buffer.byteLength(trimmedText, "utf8") > MAX_ROUTE_TEXT_BYTES) {
+    return res.status(400).json({ error: "Text payload is too large." });
   }
 
   try {
-    const geminiResult = await analyzeImageWithGemini(imageBase64, mimeType);
-    return res.json(geminiResult);
+    const result = await withTimeout(
+      classifyText(trimmedText),
+      15000,
+      "Routing timed out"
+    );
+    return res.json(result);
   } catch (error) {
-    console.error("Gemini image analysis failed:", error.message);
+    const message = error?.message || "Failed to route issue.";
+    if (message === "Routing timed out") {
+      return res.status(504).json({ error: "Routing timed out. Please try again." });
+    }
+    console.error("Routing failed.", message);
+    return res.status(500).json({ error: "Failed to route issue." });
   }
-
-  try {
-    const huggingFaceResult = await analyzeImageWithHuggingFace(imageBase64, mimeType);
-    return res.json(huggingFaceResult);
-  } catch (error) {
-    console.error("HuggingFace image analysis failed:", error.message);
-  }
-
-  return res.json(FINAL_FALLBACK_ANALYSIS);
 });
 
 // Protected route: /classify

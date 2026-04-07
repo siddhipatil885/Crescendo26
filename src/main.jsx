@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db } from './services/firebase'
@@ -8,6 +8,8 @@ import App from './App'
 import MobileLayout from './components/MobileLayout'
 import AuthFlow from './pages/auth/AuthFlow'
 import AdminDashboard from './pages/admin/AdminDashboard'
+import TrackIssue from './pages/citizen/TrackIssue'
+import TrackIssueDetails from './pages/citizen/TrackIssueDetails'
 import './index.css'
 
 function ProtectedRoute({ children }) {
@@ -98,11 +100,66 @@ function AdminDashboardPage() {
   )
 }
 
+function TrackIssuePage() {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const initialToken = new URLSearchParams(location.search).get('token') ?? ''
+
+  const handleTabChange = (tabId) => {
+    if (tabId === 'track') {
+      return
+    }
+
+    navigate('/', { state: { activeTab: tabId } })
+  }
+
+  return (
+    <div className="app-shell">
+      <div className="mobile-frame">
+        <MobileLayout
+          activeTab="track"
+          onTabChange={handleTabChange}
+        >
+          <TrackIssue initialToken={initialToken} />
+        </MobileLayout>
+      </div>
+    </div>
+  )
+}
+
+function TrackedIssueDetailsPage() {
+  const navigate = useNavigate()
+
+  const handleTabChange = (tabId) => {
+    if (tabId === 'track') {
+      navigate('/track')
+      return
+    }
+
+    navigate('/', { state: { activeTab: tabId } })
+  }
+
+  return (
+    <div className="app-shell">
+      <div className="mobile-frame">
+        <MobileLayout
+          activeTab="track"
+          onTabChange={handleTabChange}
+        >
+          <TrackIssueDetails />
+        </MobileLayout>
+      </div>
+    </div>
+  )
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<App />} />
+        <Route path="/track" element={<TrackIssuePage />} />
+        <Route path="/track/:tokenId" element={<TrackedIssueDetailsPage />} />
         <Route path="/admin/login" element={<AuthFlow />} />
         <Route 
           path="/admin/dashboard" 
