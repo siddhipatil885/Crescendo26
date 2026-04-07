@@ -21,6 +21,8 @@ export const uploadToCloudinary = async (file) => {
   return data.secure_url;
 };
 
+export const uploadImage = uploadToCloudinary;
+
 /**
  * Get a resized thumbnail version of any Cloudinary URL.
  * No extra API call — just URL transformation.

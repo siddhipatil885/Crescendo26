@@ -1,15 +1,14 @@
 const express = require("express");
 const dotenv = require("dotenv");
+const path = require("path");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const admin = require("firebase-admin");
 const rateLimit = require("express-rate-limit");
 
-const dotenvResult = dotenv.config();
-if (dotenvResult.error) {
-  console.warn("Warning: .env file not loaded. Using existing environment variables.");
-}
+dotenv.config({ path: path.resolve(__dirname, ".env") });
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-const apiKey = process.env.GEMINI_API_KEY;
+const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 if (!apiKey) {
   console.error("Error: GEMINI_API_KEY is missing. Gemini classification will be skipped.");
 }
