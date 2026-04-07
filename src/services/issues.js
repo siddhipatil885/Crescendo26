@@ -7,6 +7,7 @@ import {
   doc, 
   updateDoc,
   serverTimestamp,
+  Timestamp,
   query,
   orderBy,
   limit,
@@ -21,15 +22,19 @@ export const createIssue = async (issueData) => {
   try {
     const issuesRef = collection(db, ISSUES_COLLECTION);
     const createdAtClient = new Date();
+    const deadlineClient = new Date(createdAtClient.getTime() + 7 * 24 * 60 * 60 * 1000);
     const newIssue = {
       ...issueData,
       createdAt: serverTimestamp(),
-      status: issueData.status || "pending",
+      deadline: issueData.deadline || Timestamp.fromDate(deadlineClient),
+      status: issueData.status || "Pending",
+      beforeImage: issueData.beforeImage || null,
+      afterImage: issueData.afterImage || null,
       archived: false,
     };
     
     const docRef = await addDoc(issuesRef, newIssue);
-    return { id: docRef.id, ...newIssue, createdAt: createdAtClient };
+    return { id: docRef.id, ...newIssue, createdAt: createdAtClient, deadline: deadlineClient };
   } catch (error) {
     console.error("Error creating issue:", error);
     throw error;

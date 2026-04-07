@@ -90,10 +90,10 @@ export default function ReportIssue({ draftImage, onSubmit }) {
       await createIssue({
         category: finalCategory || 'Uncategorized',
         description: draft.description,
-        status: "pending",
+        status: "Pending",
         lat: draft.lat || 0,
         lng: draft.lng || 0,
-        beforeImageUrl: finalImageUrl
+        beforeImage: finalImageUrl
       });
 
       setSubmitStatus('Success!');

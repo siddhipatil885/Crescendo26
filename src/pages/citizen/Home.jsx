@@ -1,15 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { MoreHorizontal, Clock, RefreshCw, CheckCircle2, MapPin, ListFilter } from 'lucide-react';
 import { subscribeToIssues } from '../../services/issues';
-import { timeAgo } from '../../utils/formatters';
 import MapView from '../../components/map/MapView';
 import useIssueMapData from '../../hooks/useIssueMapData';
+import { computeEscalationStatus, formatCountdown, getIssueImage } from '../../utils/escalation';
 
 
 const badgeClass = (status) => {
   switch (status?.toLowerCase()) {
     case 'pending': return 'badge badge-pending';
     case 'in_progress': case 'in progress': case 'review': return 'badge badge-review';
+    case 'rti generated': return 'badge badge-review';
+    case 'escalated to mla': return 'badge badge-pending';
     case 'resolved': case 'completed': case 'verified': return 'badge badge-resolved';
     default: return 'badge badge-pending';
   }
@@ -19,6 +21,7 @@ export default function Home({ onNavigate }) {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [now, setNow] = useState(() => new Date());
   const {
     issues: mapIssues,
     loading: mapLoading,
@@ -44,9 +47,17 @@ export default function Home({ onNavigate }) {
     return () => unsubscribe();
   }, []);
 
-  const pendingCount = useMemo(() => issues.filter(i => i.status?.toLowerCase() === 'pending').length, [issues]);
-  const inProgressCount = useMemo(() => issues.filter(i => ['in_progress', 'in progress', 'review'].includes(i.status?.toLowerCase())).length, [issues]);
-  const resolvedCount = useMemo(() => issues.filter(i => ['resolved', 'completed', 'verified'].includes(i.status?.toLowerCase())).length, [issues]);
+  useEffect(() => {
+    const intervalId = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const pendingCount = useMemo(() => issues.filter(i => computeEscalationStatus(i, now).toLowerCase() === 'pending').length, [issues, now]);
+  const inProgressCount = useMemo(() => {
+    const activeStatuses = ['in progress', 'rti generated', 'escalated to mla'];
+    return issues.filter(i => activeStatuses.includes(computeEscalationStatus(i, now).toLowerCase())).length;
+  }, [issues, now]);
+  const resolvedCount = useMemo(() => issues.filter(i => computeEscalationStatus(i, now).toLowerCase() === 'resolved').length, [issues, now]);
   const resolutionRate = useMemo(() => {
     if (issues.length === 0) {
       return null;
@@ -141,10 +152,14 @@ export default function Home({ onNavigate }) {
           {issues.length === 0 && !loading && (
             <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', color: '#6B7280', fontSize: '0.85rem' }}>No issues reported yet.</div>
           )}
-          {issues.map((issue) => (
+          {issues.map((issue) => {
+            const computedStatus = computeEscalationStatus(issue, now);
+            const countdown = formatCountdown(issue, now);
+            const previewImage = getIssueImage(issue, 'before');
+            return (
             <div key={issue.id} onClick={() => onNavigate('details', issue.id)} role="button" tabIndex={0} style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1rem', cursor: 'pointer' }}>
-              {issue.beforeImageUrl ? (
-                <img src={issue.beforeImageUrl} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} alt={issue.category || 'Issue'} />
+              {previewImage ? (
+                <img src={previewImage} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} alt={issue.category || 'Issue'} />
               ) : (
                 <div style={{ width: '60px', height: '60px', borderRadius: '12px', backgroundColor: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <MapPin size={24} color="#7C8FF0" />
@@ -152,14 +167,16 @@ export default function Home({ onNavigate }) {
               )}
               <div className="flex-col justify-center flex-1">
                 <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '4px' }}>{issue.category || 'Uncategorized'}</h3>
-                <p style={{ fontSize: '0.75rem', color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>{issue.description || 'No description'}</p>
+                <p style={{ fontSize: '0.75rem', color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>{issue.description || issue.text || 'No description'}</p>
                 <div className="flex-row items-center gap-2 mt-2">
-                  <span className={badgeClass(issue.status)}>{(issue.status || 'pending').toUpperCase()}</span>
-                  <span style={{ fontSize: '0.65rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={10} /> {timeAgo(issue.createdAt)}</span>
+                  <span className={badgeClass(computedStatus)}>{computedStatus.toUpperCase()}</span>
+                  <span style={{ fontSize: '0.65rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Clock size={10} /> {countdown}
+                  </span>
                 </div>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       </div>
     </div>

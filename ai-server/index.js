@@ -233,6 +233,10 @@ protectedRoutes.post("/report-issue", async (req, res) => {
 
   try {
     const classification = await classifyText(text);
+    const createdAt = admin.firestore.Timestamp.now();
+    const deadline = admin.firestore.Timestamp.fromMillis(
+      createdAt.toMillis() + 7 * 24 * 60 * 60 * 1000
+    );
 
     const docRef = await db.collection("issues").add({
       text,
@@ -241,7 +245,11 @@ protectedRoutes.post("/report-issue", async (req, res) => {
       priority: classification.priority,
       confidence: classification.confidence,
       userId: req.user.uid, // Track which user created the issue
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt,
+      deadline,
+      status: "Pending",
+      beforeImage: null,
+      afterImage: null,
     });
 
     const snap = await docRef.get();
@@ -249,6 +257,62 @@ protectedRoutes.post("/report-issue", async (req, res) => {
   } catch (error) {
     console.error("Failed to report issue:", error.message);
     return res.status(500).json({ error: "Failed to report issue." });
+  }
+});
+
+function computeEscalationStatus(createdAt, currentStatus) {
+  const resolved = ["resolved", "completed", "verified"];
+  if (currentStatus && resolved.includes(currentStatus.toLowerCase())) {
+    return "Resolved";
+  }
+
+  if (!createdAt) {
+    return currentStatus || "Pending";
+  }
+
+  const createdDate = createdAt?.toDate ? createdAt.toDate() : new Date(createdAt);
+  const elapsedDays = (Date.now() - createdDate.getTime()) / (24 * 60 * 60 * 1000);
+
+  if (elapsedDays >= 7) return "Escalated to MLA";
+  if (elapsedDays >= 5) return "RTI Generated";
+  if (elapsedDays >= 2) return "In Progress";
+  return "Pending";
+}
+
+// Protected route: /update-status/:id
+protectedRoutes.patch("/update-status/:id", async (req, res) => {
+  const issueId = req.params.id;
+  const { status, afterImage } = req.body || {};
+
+  if (!issueId) {
+    return res.status(400).json({ error: "Issue ID is required." });
+  }
+
+  try {
+    const issueRef = db.collection("issues").doc(issueId);
+    const snap = await issueRef.get();
+    if (!snap.exists) {
+      return res.status(404).json({ error: "Issue not found." });
+    }
+
+    const existing = snap.data();
+    const nextStatus = status || computeEscalationStatus(existing?.createdAt, existing?.status);
+
+    const updates = {
+      status: nextStatus,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    if (typeof afterImage !== "undefined") {
+      updates.afterImage = afterImage;
+    }
+
+    await issueRef.update(updates);
+    const updatedSnap = await issueRef.get();
+    return res.json({ id: issueId, ...updatedSnap.data() });
+  } catch (error) {
+    console.error("Failed to update status:", error.message);
+    return res.status(500).json({ error: "Failed to update status." });
   }
 });
 
