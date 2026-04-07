@@ -95,6 +95,47 @@ function getDepartmentByCategory(category) {
   return map[category] || "General";
 }
 
+function getContractor(rawText) {
+  const normalize = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+
+  const text = normalize(rawText);
+
+  const priorityRoadMatches = [
+    "bibwewadi-kondhwa road",
+    "swami vivekanand road",
+    "shri swami vivekanand marg",
+    "bibwewadi main road",
+    "pune-satara road",
+    "katraj bypass road",
+    "nh-65",
+    "apaar market road",
+    "upper indira nagar",
+    "vit",
+  ];
+
+  const contractorForPriorityRoads = "PMC Tender (Contractor Not Public)";
+
+  const hasExactOrBoundaryMatch = priorityRoadMatches.some((road) => {
+    const normalizedRoad = normalize(road);
+    if (!normalizedRoad) return false;
+    if (text === normalizedRoad) return true;
+    const escaped = normalizedRoad.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const boundaryRegex = new RegExp(`(^|\\s)${escaped}(\\s|$)`);
+    return boundaryRegex.test(text);
+  });
+
+  if (hasExactOrBoundaryMatch) {
+    return contractorForPriorityRoads;
+  }
+
+  return "Unassigned";
+}
+
 function fallbackClassify(rawText) {
   const text = (rawText || "").toLowerCase();
 
@@ -232,6 +273,7 @@ protectedRoutes.post("/report-issue", async (req, res) => {
 
   try {
     const classification = await classifyText(text);
+    const contractor = getContractor(text);
     const createdAt = admin.firestore.Timestamp.now();
     const deadline = admin.firestore.Timestamp.fromMillis(
       createdAt.toMillis() + 7 * 24 * 60 * 60 * 1000
@@ -243,6 +285,7 @@ protectedRoutes.post("/report-issue", async (req, res) => {
       department: classification.department,
       priority: classification.priority,
       confidence: classification.confidence,
+      contractor,
       userId: req.user.uid, // Track which user created the issue
       createdAt,
       deadline,
