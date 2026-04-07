@@ -60,30 +60,24 @@ export default function AdminDashboard() {
 
   const stats = useMemo(() => {
     const total = issues.length;
-const stats = useMemo(() => {
-  const total = issues.length;
+    const pending = issues.filter(i => isPendingStatus(i.status)).length;
+    const inProgress = issues.filter(i => isInProgressStatus(i.status)).length;
+    const resolved = issues.filter(i => isResolvedStatus(i.status)).length;
 
-  const pending = issues.filter(i => isPendingStatus(i.status)).length;
-  const inProgress = issues.filter(i => isInProgressStatus(i.status)).length;
+    const today = new Date().setHours(0, 0, 0, 0);
+    const resolvedToday = issues.filter(i => {
+      if (!isResolvedStatus(i.status)) return false;
+      const ts = i.updatedAt || i.updated_at;
+      const updatedDate = ts?.toDate ? ts.toDate().setHours(0, 0, 0, 0) : null;
+      return updatedDate === today;
+    }).length;
 
-  const today = new Date().setHours(0,0,0,0);
+    return { total, pending, inProgress, resolved, resolvedToday };
+  }, [issues]);
 
-  const resolvedToday = issues.filter(i => {
-    if (!isResolvedStatus(i.status)) return false;
-
-    const ts = i.updatedAt || i.updated_at;
-    const updatedDate = ts?.toDate ? ts.toDate().setHours(0,0,0,0) : null;
-
-    return updatedDate === today;
-  }).length;
-
-  return { total, pending, inProgress, resolvedToday };
-}, [issues]);
-
-const categories = useMemo(() => {
-  const cats = new Set(issues.map(i => i.category).filter(Boolean));
-  return ['All', ...Array.from(cats)];
-}, [issues]);
+  const categories = useMemo(() => {
+    const cats = new Set(issues.map(i => i.category).filter(Boolean));
+    return ['All', ...Array.from(cats)];
   }, [issues]);
 
   const filteredIssues = useMemo(() => {
@@ -376,142 +370,19 @@ const categories = useMemo(() => {
         <h3 className="font-bold tracking-tight text-slate-900 text-xl flex items-center mb-8">
           <BarChart3 size={24} className="mr-2 text-indigo-600" /> Executive Analytics
         </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="border border-slate-100 rounded-2xl p-6 bg-slate-50 shadow-sm">
             <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Avg Resolution Time</h4>
             <div className="text-4xl font-extrabold text-slate-900 tracking-tight">42 hrs</div>
             <p className="text-sm text-emerald-600 mt-3 font-semibold flex items-center"><TrendingUp size={16} className="mr-1.5" /> 12% faster than last month</p>
           </div>
-
-{issues.map(issue => {
-  const badge = statusBadge(issue.status);
-  const currentStatus = issue.status?.toLowerCase();
-
-  return (
-    <div
-      key={issue.id}
-      className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
-    >
-      <div className="h-[140px] relative">
-        <img
-          src={
-            issue.beforeImage ||
-            issue.beforeImageUrl ||
-            "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=500&h=300&fit=crop"
-          }
-          className="w-full h-full object-cover"
-          alt={issue.category}
-        />
-
-        {statusEquals(issue.status, ISSUE_STATUS.VERIFIED) && (
-          <div className="absolute top-3 right-3 bg-emerald-700 text-white px-2 py-1 rounded-md text-[0.6rem] font-bold">
-            VERIFIED
+          <div className="border border-slate-100 rounded-2xl p-6 bg-slate-50 shadow-sm">
+            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Resolved Today</h4>
+            <div className="text-4xl font-extrabold text-slate-900 tracking-tight">{stats.resolvedToday}</div>
+            <p className="text-sm text-slate-600 mt-3 font-semibold flex items-center"><TrendingUp size={16} className="mr-1.5 text-slate-400" /> Daily throughput</p>
           </div>
-        )}
+        </div>
       </div>
-
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-sm">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Operational Status</label>
-                <div className="relative">
-                  <select
-                    value={selectedIssue.status?.toLowerCase() || 'pending'}
-                    onChange={(e) => handleStatusChange(selectedIssue.id, e.target.value)}
-                    disabled={isUpdating}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm cursor-pointer appearance-none"
-                  >
-                    <option value="pending">⚠️ Pending Validation</option>
-                    <option value="in_progress">🚧 Action In Progress</option>
-                    <option value="resolved">✅ Resolved & Closed</option>
-                  </select>
-                </div>
-              </div>
-
-              {selectedIssue.verified_by_citizen && (
-                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 mb-8 flex items-start shadow-sm">
-                  <div className="bg-emerald-100 p-2 rounded-xl mr-4 text-emerald-600 mt-0.5 border border-emerald-200 shadow-sm"><ShieldCheck size={20} /></div>
-                  <div>
-                    <h4 className="text-sm font-extrabold text-emerald-900 tracking-tight">Resolution Authenticated</h4>
-                    <p className="text-xs text-emerald-700 mt-1.5 font-medium leading-relaxed">Citizen successfully uploaded physical verification of the structural resolution.</p>
-                  </div>
-                </div>
-              )}
-
-<div className="space-y-6 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
-
-  {/* Status Badge */}
-  <div style={{ backgroundColor: badge.bg, padding: '0.6rem 1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: badge.color, letterSpacing: '0.05em' }}>
-      {badge.label}
-    </span>
-
-    {isResolvedStatus(currentStatus) ? (
-      <CheckCircle2 size={16} color={badge.color} />
-    ) : (
-      <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: badge.color }}></div>
-    )}
-  </div>
-
-  {/* Admin Action Buttons */}
-  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-    {isPendingStatus(currentStatus) && (
-      <button
-        onClick={() => handleStatusChange(issue.id, ISSUE_STATUS.IN_PROGRESS)}
-        style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', backgroundColor: '#1E3A8A', color: 'white', fontSize: '0.7rem', fontWeight: '600', border: 'none', cursor: 'pointer' }}
-      >
-        → In Progress
-      </button>
-    )}
-
-    {!isResolvedStatus(currentStatus) && (
-      <button
-        onClick={() => handleStatusChange(issue.id, ISSUE_STATUS.RESOLVED)}
-        style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', backgroundColor: '#047857', color: 'white', fontSize: '0.7rem', fontWeight: '600', border: 'none', cursor: 'pointer' }}
-      >
-        ✓ Resolve
-      </button>
-    )}
-  </div>
-
-  {/* Asset Category */}
-  <div>
-    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-      Asset Category
-    </h4>
-    <p className="font-bold text-slate-900 text-sm bg-slate-100 inline-block px-3 py-1.5 rounded-lg border border-slate-200">
-      {selectedIssue.category || 'Uncategorized'}
-    </p>
-  </div>
-
-  {/* Citizen Deposition */}
-  <div className="pt-4 border-t border-slate-100">
-    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-      Citizen Deposition
-    </h4>
-    <p className="text-slate-700 text-sm leading-relaxed bg-slate-50 border border-slate-100 p-4 rounded-xl overflow-wrap break-words whitespace-pre-wrap font-medium">
-      {selectedIssue.description || selectedIssue.text || 'No textual description.'}
-    </p>
-  </div>
-
-</div>
-
-                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Logged Timestamp</h4>
-                    <p className="text-slate-800 text-sm flex items-center font-bold"><Clock size={14} className="mr-2 text-slate-400" /> {timeAgo(selectedIssue.createdAt || selectedIssue.reported_at)}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Coordinates</h4>
-                    <p className="text-slate-800 text-sm flex items-center font-bold"><MapPin size={14} className="mr-2 text-slate-400" /> <span className="truncate">{selectedIssue.neighbourhood || 'Unknown Node'}</span></p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </>
-      )}
-
     </div>
   );
 }

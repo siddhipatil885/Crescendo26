@@ -95,6 +95,41 @@ function getDepartmentByCategory(category) {
   return map[category] || "General";
 }
 
+function getContractor(rawText) {
+  const text = (rawText || "").toLowerCase();
+
+  const priorityRoadMatches = [
+    "bibwewadi-kondhwa road",
+    "swami vivekanand road",
+    "shri swami vivekanand marg",
+    "bibwewadi main road",
+    "pune-satara road",
+    "katraj bypass road",
+    "nh-65",
+    "apaar market road",
+    "upper indira nagar",
+    "vit",
+  ];
+
+  const contractorForPriorityRoads = "PMC Tender (Contractor Not Public)";
+
+  if (priorityRoadMatches.some((road) => text.includes(road))) {
+    return contractorForPriorityRoads;
+  }
+
+  const fallbackContractors = [
+    "ABC Infra Pvt Ltd",
+    "XYZ Constructions",
+    "UrbanBuild Corp",
+    "MetroWorks Ltd",
+    "CivicLine Projects",
+    "RoadFix Solutions",
+  ];
+
+  const pick = Math.floor(Math.random() * fallbackContractors.length);
+  return fallbackContractors[pick];
+}
+
 function fallbackClassify(rawText) {
   const text = (rawText || "").toLowerCase();
 
@@ -232,6 +267,7 @@ protectedRoutes.post("/report-issue", async (req, res) => {
 
   try {
     const classification = await classifyText(text);
+    const contractor = getContractor(text);
     const createdAt = admin.firestore.Timestamp.now();
     const deadline = admin.firestore.Timestamp.fromMillis(
       createdAt.toMillis() + 7 * 24 * 60 * 60 * 1000
@@ -243,6 +279,7 @@ protectedRoutes.post("/report-issue", async (req, res) => {
       department: classification.department,
       priority: classification.priority,
       confidence: classification.confidence,
+      contractor,
       userId: req.user.uid, // Track which user created the issue
       createdAt,
       deadline,
