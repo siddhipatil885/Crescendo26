@@ -6,7 +6,6 @@ import {
   TrendingUp, ClipboardList, Zap, ArrowUpRight
 } from 'lucide-react';
 import { subscribeToIssues, updateIssue } from '../../services/issues';
-import { ISSUE_STATUS, isInProgressStatus, isPendingStatus, isResolvedStatus, statusEquals } from '../../utils/constants';
 import { timeAgo } from '../../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../auth/AuthFlow';
@@ -14,16 +13,10 @@ import MapView from '../../components/map/MapView';
 
 const statusBadge = (status) => {
   const s = status?.toLowerCase();
-if (isPendingStatus(s)) 
-  return { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Pending' };
-
-if (isInProgressStatus(s)) 
-  return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'In Progress' };
-
-if (isResolvedStatus(s)) 
-  return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Resolved' };
-
-return { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Unknown' };
+  if (s === 'pending' || s === 'open') return { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Pending' };
+  if (['in_progress', 'in progress', 'review', 'rti generated'].includes(s)) return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'In Progress' };
+  if (['resolved', 'completed', 'verified'].includes(s)) return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Resolved' };
+  return { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Unknown' };
 };
 
 export default function AdminDashboard() {
@@ -60,30 +53,15 @@ export default function AdminDashboard() {
 
   const stats = useMemo(() => {
     const total = issues.length;
-const stats = useMemo(() => {
-  const total = issues.length;
+    const pending = issues.filter(i => ['pending', 'open'].includes(i.status?.toLowerCase())).length;
+    const inProgress = issues.filter(i => ['in_progress', 'in progress', 'review'].includes(i.status?.toLowerCase())).length;
+    const resolved = issues.filter(i => ['resolved', 'completed', 'verified'].includes(i.status?.toLowerCase())).length;
+    return { total, pending, inProgress, resolved };
+  }, [issues]);
 
-  const pending = issues.filter(i => isPendingStatus(i.status)).length;
-  const inProgress = issues.filter(i => isInProgressStatus(i.status)).length;
-
-  const today = new Date().setHours(0,0,0,0);
-
-  const resolvedToday = issues.filter(i => {
-    if (!isResolvedStatus(i.status)) return false;
-
-    const ts = i.updatedAt || i.updated_at;
-    const updatedDate = ts?.toDate ? ts.toDate().setHours(0,0,0,0) : null;
-
-    return updatedDate === today;
-  }).length;
-
-  return { total, pending, inProgress, resolvedToday };
-}, [issues]);
-
-const categories = useMemo(() => {
-  const cats = new Set(issues.map(i => i.category).filter(Boolean));
-  return ['All', ...Array.from(cats)];
-}, [issues]);
+  const categories = useMemo(() => {
+    const cats = new Set(issues.map(i => i.category).filter(Boolean));
+    return ['All', ...Array.from(cats)];
   }, [issues]);
 
   const filteredIssues = useMemo(() => {
@@ -384,32 +362,202 @@ const categories = useMemo(() => {
             <p className="text-sm text-emerald-600 mt-3 font-semibold flex items-center"><TrendingUp size={16} className="mr-1.5" /> 12% faster than last month</p>
           </div>
 
-{issues.map(issue => {
-  const badge = statusBadge(issue.status);
-  const currentStatus = issue.status?.toLowerCase();
+          <div className="border border-slate-100 rounded-2xl p-6 bg-slate-50 shadow-sm">
+            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Citizen Engagement</h4>
+            <div className="text-4xl font-extrabold text-slate-900 tracking-tight">842 <span className="text-xl text-slate-400 font-medium tracking-normal">Tokens</span></div>
+            <p className="text-sm text-slate-500 mt-3 font-medium flex items-center"><Users size={16} className="mr-1.5" /> Claim tokens issued this period</p>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+          <div>
+            <h4 className="font-bold text-indigo-900 text-lg">Generate Offline Report</h4>
+            <p className="text-sm text-indigo-700/80 mt-1 font-medium">Export the comprehensive dataset tailored for municipal board review.</p>
+          </div>
+          <button className="flex items-center px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-sm hover:bg-indigo-700 transition hover:shadow-md">
+            <Download size={18} className="mr-2" /> Export to CSV
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSettings = () => (
+    <div className="space-y-6 fade-in">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm w-full max-w-3xl overflow-hidden">
+        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+          <h3 className="font-bold tracking-tight text-slate-900 text-xl flex items-center">
+            <Settings size={22} className="mr-2 text-slate-400" /> Administrative Personnel
+          </h3>
+        </div>
+
+        <div className="p-8 space-y-8">
+          <div className="flex items-center pb-8 border-b border-slate-100">
+            <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-700 font-bold text-2xl mr-6 border-2 border-indigo-100 shadow-sm">
+              OP
+            </div>
+            <div>
+              <h4 className="text-xl font-extrabold text-slate-900 tracking-tight">Officer Puneet</h4>
+              <p className="text-sm text-slate-500 font-medium mt-1 bg-slate-100 inline-block px-2.5 py-1 rounded-md">Public Works Department ΓÇó Ward C</p>
+              <p className="text-xs text-slate-400 mt-2 flex items-center"><Clock size={12} className="mr-1" /> Shift: 08:00 AM - 04:00 PM</p>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-base font-bold text-slate-900 mb-5 flex items-center"><AlertTriangle size={18} className="mr-2 text-amber-500" /> Notification Preferences</h4>
+            <label className="flex items-center space-x-3 cursor-pointer group">
+              <input type="checkbox" className="form-checkbox h-5 w-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 transition" defaultChecked />
+              <span className="text-slate-700 font-medium group-hover:text-slate-900 transition-colors">Alert me instantly regarding High-Priority categorizations</span>
+            </label>
+          </div>
+
+          <div className="pt-8 border-t border-slate-100">
+            <h4 className="text-base font-bold text-slate-900 mb-5 flex items-center"><Users size={18} className="mr-2 text-slate-400" /> Team Management</h4>
+            <button className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition shadow-sm hover:shadow flex items-center">
+              Invite New Officer <ArrowUpRight size={16} className="ml-2 opacity-70" />
+            </button>
+            <p className="text-xs text-slate-400 mt-3 max-w-sm leading-relaxed">Invitations will automatically route new officers to your specific municipal department overview securely.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div
-      key={issue.id}
-      className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
-    >
-      <div className="h-[140px] relative">
-        <img
-          src={
-            issue.beforeImage ||
-            issue.beforeImageUrl ||
-            "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=500&h=300&fit=crop"
-          }
-          className="w-full h-full object-cover"
-          alt={issue.category}
-        />
+    <div className="flex h-screen w-full bg-slate-50 overflow-hidden text-slate-800 font-sans">
 
-        {statusEquals(issue.status, ISSUE_STATUS.VERIFIED) && (
-          <div className="absolute top-3 right-3 bg-emerald-700 text-white px-2 py-1 rounded-md text-[0.6rem] font-bold">
-            VERIFIED
+      {/* SIDEBAR - Dark SaaS Theme */}
+      <aside className="w-64 bg-slate-900 flex flex-col justify-between hidden md:flex shrink-0 shadow-xl z-20">
+        <div>
+          <div className="h-20 flex items-center px-6 border-b border-slate-800/50">
+            <div className="bg-indigo-500 p-1.5 rounded-lg mr-3 shadow-lg shadow-indigo-500/20">
+              <ShieldCheck className="text-white" size={22} />
+            </div>
+            <h1 className="text-xl font-extrabold text-white tracking-tight">CIVIX <span className="text-indigo-400 font-medium">Admin</span></h1>
           </div>
-        )}
-      </div>
+          <nav className="p-4 space-y-1.5 mt-2">
+            {[
+              { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+              { id: 'map', icon: MapIcon, label: 'Live Map' },
+              { id: 'issues', icon: ListTodo, label: 'Issue Management' },
+              { id: 'analytics', icon: BarChart3, label: 'Analytics & Reports' },
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/50' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
+              >
+                <item.icon size={18} className={`mr-3 ${activeTab === item.id ? 'opacity-100' : 'opacity-70'}`} /> {item.label}
+              </button>
+            ))}
+
+            <div className="pt-4 pb-2">
+              <p className="px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">System</p>
+            </div>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`w-full flex items-center px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/50' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
+            >
+              <Settings size={18} className={`mr-3 ${activeTab === 'settings' ? 'opacity-100' : 'opacity-70'}`} /> Settings & Personnel
+            </button>
+          </nav>
+        </div>
+        <div className="p-4 border-t border-slate-800/50">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-rose-500/10 rounded-xl font-semibold transition-colors group"
+          >
+            <LogOut size={18} className="mr-3 group-hover:text-rose-400 transition-colors" /> Logout Session
+          </button>
+        </div>
+      </aside>
+
+      {/* MAIN CONTENT AREA */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50 relative">
+
+        {/* TOP NAVBAR - Crisp White, subtle borders */}
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 relative z-10">
+          <div className="flex items-center">
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight capitalize">{activeTab.replace('-', ' ')}</h2>
+            {loading && <Loader2 size={18} className="ml-4 animate-spin text-indigo-500" />}
+          </div>
+
+          <div className="flex items-center space-x-6">
+
+            <div className="relative group hidden lg:block">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
+              <input
+                type="text"
+                placeholder="Search database..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2.5 border border-transparent rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white w-64 bg-slate-100 text-slate-800 transition-all placeholder:text-slate-400"
+              />
+            </div>
+
+            <div className="h-6 w-px bg-slate-200 hidden lg:block"></div>
+
+            <button className="relative text-slate-400 hover:text-slate-600 transition-colors">
+              <Bell size={20} />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
+            </button>
+
+            <div className="flex items-center gap-3 cursor-pointer pl-2">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-slate-900 leading-tight">Puneet S.</p>
+                <p className="text-xs font-medium text-slate-500">Admin</p>
+              </div>
+              <div className="h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-indigo-200 shadow-sm">
+                PU
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* PAGE BODY - Deep Padding, gap spacing */}
+        <div className="flex-1 overflow-auto p-8 relative z-0">
+          {error && (
+            <div className="mb-8 p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 flex items-center shadow-sm font-medium">
+              <AlertTriangle size={18} className="mr-3" /> {error}
+            </div>
+          )}
+
+          {activeTab === 'dashboard' && renderDashboard()}
+          {activeTab === 'map' && renderMap()}
+          {activeTab === 'issues' && renderIssues()}
+          {activeTab === 'analytics' && renderAnalytics()}
+          {activeTab === 'settings' && renderSettings()}
+
+        </div>
+      </main>
+
+      {/* ENHANCED SLIDE-OUT DRAWER */}
+      {selectedIssue && (
+        <>
+          <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 transition-opacity" onClick={() => setSelectedIssue(null)}></div>
+          <div className="fixed inset-y-0 right-0 w-full md:w-[480px] bg-white shadow-2xl z-50 transform transition-transform duration-300 flex flex-col border-l border-slate-200">
+
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 bg-white relative z-10 shrink-0">
+              <div>
+                <h2 className="text-xl font-extrabold tracking-tight text-slate-900 flex items-center">Complaint Overview</h2>
+                <div className="text-xs font-mono font-medium text-slate-400 mt-1">ID: {selectedIssue.id}</div>
+              </div>
+              <button
+                onClick={() => setSelectedIssue(null)}
+                className="p-2.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors shadow-sm"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Drawer Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
+
+              <div className="w-full h-72 bg-slate-200 rounded-2xl overflow-hidden mb-8 relative border border-slate-200 shadow-inner group">
+                <img src={selectedIssue.beforeImage || selectedIssue.beforeImageUrl || 'https://via.placeholder.com/500'} alt="Documentation" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm">Field Evidence</div>
+              </div>
 
               <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-sm">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Operational Status</label>
@@ -420,9 +568,9 @@ const categories = useMemo(() => {
                     disabled={isUpdating}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm cursor-pointer appearance-none"
                   >
-                    <option value="pending">⚠️ Pending Validation</option>
-                    <option value="in_progress">🚧 Action In Progress</option>
-                    <option value="resolved">✅ Resolved & Closed</option>
+                    <option value="pending">ΓÜá∩╕Å Pending Validation</option>
+                    <option value="in_progress">≡ƒÜº Action In Progress</option>
+                    <option value="resolved">Γ£à Resolved & Closed</option>
                   </select>
                 </div>
               </div>
@@ -447,11 +595,10 @@ const categories = useMemo(() => {
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Citizen Deposition</h4>
                   <p className="text-slate-700 text-sm leading-relaxed bg-slate-50 border border-slate-100 p-4 rounded-xl overflow-wrap break-words whitespace-pre-wrap font-medium">{selectedIssue.description || selectedIssue.text || 'No textual description.'}</p>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
-                <div>
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Logged Timestamp</h4>
+                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Logged Timestamp</h4>
                     <p className="text-slate-800 text-sm flex items-center font-bold"><Clock size={14} className="mr-2 text-slate-400" /> {timeAgo(selectedIssue.createdAt || selectedIssue.reported_at)}</p>
                   </div>
                   <div>
