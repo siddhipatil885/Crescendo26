@@ -4,7 +4,6 @@ import Home from './pages/citizen/Home';
 import CaptureIssue from './pages/citizen/CaptureIssue';
 import ReportIssue from './pages/citizen/ReportIssue';
 import IssueDetails from './pages/citizen/IssueDetails';
-import AdminDashboard from './pages/admin/AdminDashboard';
 import Map from './pages/citizen/Map';
 
 function App() {
@@ -13,7 +12,6 @@ function App() {
   const [reportStep, setReportStep] = useState('capture');
   const [draftImage, setDraftImage] = useState(null);
   const [selectedIssueId, setSelectedIssueId] = useState(null);
-  const [isAdminMode, setIsAdminMode] = useState(false);
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
@@ -37,15 +35,13 @@ function App() {
   const renderContent = () => {
     // If viewing a detail page
     if (subView === 'details') {
-      return <IssueDetails issueId={selectedIssueId} isAdmin={isAdminMode} />;
+      return <IssueDetails issueId={selectedIssueId} isAdmin={false} />;
     }
 
     // Main Tab Routing
     switch (activeTab) {
       case 'dashboard':
-        return isAdminMode 
-          ? <AdminDashboard onNavigate={handleNavigate} /> 
-          : <Home onNavigate={handleNavigate} />;
+        return <Home onNavigate={handleNavigate} />;
       case 'report':
         return reportStep === 'capture' 
           ? <CaptureIssue onCapture={(imgUrl) => { setDraftImage(imgUrl); setReportStep('details'); }} />
@@ -58,17 +54,6 @@ function App() {
             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=EEF2FF" style={{ width: 100, height: 100, borderRadius: '50%', marginBottom: '1rem' }} />
             <h2 style={{ fontSize: '1.5rem', marginBottom: '2rem' }}>Community Profile</h2>
             
-            {import.meta.env.DEV && (
-              <>
-                <button 
-                  onClick={() => setIsAdminMode(!isAdminMode)}
-                  style={{ backgroundColor: isAdminMode ? '#1F2937' : '#7C8FF0', color: 'white', padding: '1rem 2rem', borderRadius: '12px', fontWeight: 'bold' }}
-                >
-                  Switch to {isAdminMode ? 'Citizen' : 'Admin'} View Mode
-                </button>
-                <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#6B7280' }}>(Dev Toggle)</p>
-              </>
-            )}
           </div>
         );
       default:

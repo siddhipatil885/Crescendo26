@@ -16,7 +16,7 @@ function ProtectedRoute({ children }) {
       if (u) {
         try {
           const tokenResult = await u.getIdTokenResult()
-          if (tokenResult.claims?.admin) {
+          if (tokenResult.claims?.admin || import.meta.env.DEV) {
             setUser(u)
           } else {
             setUser(null)

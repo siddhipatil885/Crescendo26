@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  MapPin, CheckCircle2, Clock, Loader2, LogOut, Search, Filter, 
-  LayoutDashboard, Map as MapIcon, FileText, Settings, X, ArrowRight, ShieldCheck
+import {
+  MapPin, CheckCircle2, Clock, Loader2, LogOut, Search, Filter,
+  LayoutDashboard, Map as MapIcon, FileText, Settings, X, ArrowRight, ShieldCheck,
+  BarChart3, ListTodo, Download, AlertTriangle, Users, Bell,
+  TrendingUp, ClipboardList, Zap, ArrowUpRight
 } from 'lucide-react';
 import { subscribeToIssues, updateIssue } from '../../services/issues';
 import { timeAgo } from '../../utils/formatters';
@@ -11,25 +13,25 @@ import MapView from '../../components/map/MapView';
 
 const statusBadge = (status) => {
   const s = status?.toLowerCase();
-  if (s === 'pending' || s === 'open') return { bg: 'bg-red-100', text: 'text-red-700', label: 'PENDING' };
-  if (['in_progress', 'in progress', 'review', 'rti generated'].includes(s)) return { bg: 'bg-blue-100', text: 'text-blue-700', label: 'IN PROGRESS' };
-  if (['resolved', 'completed', 'verified'].includes(s)) return { bg: 'bg-green-100', text: 'text-green-700', label: 'RESOLVED' };
-  return { bg: 'bg-gray-100', text: 'text-gray-700', label: 'UNKNOWN' };
+  if (s === 'pending' || s === 'open') return { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Pending' };
+  if (['in_progress', 'in progress', 'review', 'rti generated'].includes(s)) return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'In Progress' };
+  if (['resolved', 'completed', 'verified'].includes(s)) return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Resolved' };
+  return { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Unknown' };
 };
 
 export default function AdminDashboard() {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  // Filters
+
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [categoryFilter, setCategoryFilter] = useState('All');
 
-  // Drawer
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [selectedRowIds, setSelectedRowIds] = useState(new Set());
 
   const navigate = useNavigate();
   const { logout } = useAdminAuth();
@@ -44,7 +46,7 @@ export default function AdminDashboard() {
         setError(err.message);
         setLoading(false);
       },
-      500 // Fetch a larger batch for the desktop command center
+      500
     );
     return () => unsubscribe();
   }, []);
@@ -52,7 +54,7 @@ export default function AdminDashboard() {
   const stats = useMemo(() => {
     const total = issues.length;
     const pending = issues.filter(i => ['pending', 'open'].includes(i.status?.toLowerCase())).length;
-    const inProgress = issues.filter(i => ['in_progress', 'in progress', 'review', 'rti generated'].includes(i.status?.toLowerCase())).length;
+    const inProgress = issues.filter(i => ['in_progress', 'in progress', 'review'].includes(i.status?.toLowerCase())).length;
     const resolved = issues.filter(i => ['resolved', 'completed', 'verified'].includes(i.status?.toLowerCase())).length;
     return { total, pending, inProgress, resolved };
   }, [issues]);
@@ -64,14 +66,14 @@ export default function AdminDashboard() {
 
   const filteredIssues = useMemo(() => {
     return issues.filter(issue => {
-      const matchSearch = issue.id?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          issue.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          issue.category?.toLowerCase().includes(searchQuery.toLowerCase());
-      
+      const matchSearch = issue.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        issue.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        issue.category?.toLowerCase().includes(searchQuery.toLowerCase());
+
       const statusLower = issue.status?.toLowerCase();
-      const matchStatus = statusFilter === 'All' 
+      const matchStatus = statusFilter === 'All'
         || (statusFilter === 'Pending' && ['pending', 'open'].includes(statusLower))
-        || (statusFilter === 'In Progress' && ['in_progress', 'in progress', 'review', 'rti generated'].includes(statusLower))
+        || (statusFilter === 'In Progress' && ['in_progress', 'in progress', 'review'].includes(statusLower))
         || (statusFilter === 'Resolved' && ['resolved', 'completed', 'verified'].includes(statusLower));
 
       const matchCategory = categoryFilter === 'All' || issue.category === categoryFilter;
@@ -94,280 +96,464 @@ export default function AdminDashboard() {
     }
   };
 
+  const executeBulkStatus = async (status) => {
+    if (selectedRowIds.size === 0) return;
+    try {
+      await Promise.all(Array.from(selectedRowIds).map(id => updateIssue(id, { status })));
+      setSelectedRowIds(new Set());
+    } catch (e) {
+      alert("Bulk update failed.");
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate('/admin/login');
   };
 
-  // Compute robust map bounds/center
   const mapCenter = useMemo(() => {
     const withCoords = filteredIssues.filter(i => i.lat && i.lng);
-    if (withCoords.length === 0) return [19.0760, 72.8777]; // Default fallback location
+    if (withCoords.length === 0) return [19.0760, 72.8777];
     const sumLat = withCoords.reduce((sum, i) => sum + i.lat, 0);
     const sumLng = withCoords.reduce((sum, i) => sum + i.lng, 0);
     return [sumLat / withCoords.length, sumLng / withCoords.length];
   }, [filteredIssues]);
 
+  const toggleRowSelect = (id) => {
+    const newSet = new Set(selectedRowIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedRowIds(newSet);
+  };
+
+  /* ===================== RENDER MODULES ===================== */
+
+  const renderDashboard = () => (
+    <div className="space-y-6 fade-in">
+      {/* SaaS Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+              <ClipboardList size={20} />
+            </div>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Reports</span>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.total}</div>
+            <p className="text-xs text-emerald-600 mt-2 font-medium flex items-center">
+              <TrendingUp size={14} className="mr-1" /> +12% from last week
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
+              <AlertTriangle size={20} />
+            </div>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pending</span>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.pending}</div>
+            <p className="text-xs text-rose-500 mt-2 font-medium flex items-center">
+              <TrendingUp size={14} className="mr-1" /> Requires attention
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+              <Zap size={20} />
+            </div>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">In Progress</span>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.inProgress}</div>
+            <p className="text-xs text-slate-500 mt-2 font-medium flex items-center">
+              Active deployments
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+              <ShieldCheck size={20} />
+            </div>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Resolved</span>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.resolved}</div>
+            <p className="text-xs text-emerald-600 mt-2 font-medium flex items-center">
+              <TrendingUp size={14} className="mr-1" /> +5% resolution rate
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <h3 className="font-bold tracking-tight text-slate-900 mb-6 flex items-center text-lg">
+            Recent Activity Feed
+          </h3>
+          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            {issues.slice(0, 10).map(issue => {
+              const bgBadge = statusBadge(issue.status);
+              return (
+                <div key={issue.id} className="flex gap-4 p-4 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors" onClick={() => setSelectedIssue(issue)}>
+                  <img src={issue.beforeImage || issue.beforeImageUrl || 'https://via.placeholder.com/60'} className="w-12 h-12 rounded-lg object-cover shadow-sm bg-slate-100" />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-bold tracking-tight text-slate-900 truncate">{issue.category}</h4>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">{issue.description || 'No description provided'}</p>
+                    <p className="text-[11px] text-slate-400 mt-1.5 font-medium flex items-center"><Clock size={12} className="mr-1" /> {timeAgo(issue.createdAt || issue.reported_at)}</p>
+                  </div>
+                  <div className="flex flex-col items-end justify-center">
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide ${bgBadge.bg} ${bgBadge.text}`}>
+                      {bgBadge.label}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold tracking-tight text-slate-900 flex items-center text-lg">
+              Category Breakdown
+            </h3>
+            <button className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center hover:bg-indigo-100 transition-colors">
+              <Download size={14} className="mr-1.5" /> Export
+            </button>
+          </div>
+          <div className="flex-1 rounded-xl border border-slate-100 flex items-center justify-center bg-slate-50 p-8 min-h-[300px]">
+            <div className="w-full space-y-5">
+              {Object.entries(issues.reduce((acc, i) => { acc[i.category || 'Other'] = (acc[i.category || 'Other'] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cat, count]) => (
+                <div key={cat}>
+                  <div className="flex justify-between text-sm mb-1.5">
+                    <span className="font-semibold text-slate-700">{cat}</span>
+                    <span className="font-bold text-slate-900">{count} reports</span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (count / issues.length) * 100)}%` }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMap = () => (
+    <div className="h-[calc(100vh-140px)] w-full flex flex-col bg-slate-100 rounded-2xl shadow-sm border-4 border-white overflow-hidden fade-in relative isolate">
+      <div className="absolute top-6 left-6 z-[400] bg-white/90 backdrop-blur-md p-3.5 rounded-xl shadow-lg border border-slate-200/50 text-sm font-semibold text-slate-700 flex gap-4">
+        <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-rose-500 mr-2 shadow-sm"></div> Pending</span>
+        <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-amber-400 mr-2 shadow-sm"></div> In Progress</span>
+        <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-emerald-500 mr-2 shadow-sm"></div> Resolved</span>
+      </div>
+      <MapView issues={filteredIssues} center={mapCenter} zoom={12} loading={loading} />
+    </div>
+  );
+
+  const renderIssues = () => (
+    <div className="flex flex-col h-[calc(100vh-140px)] bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden fade-in">
+      <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+        <h3 className="font-bold tracking-tight text-slate-900 text-lg">Complaint Management <span className="text-sm font-medium text-slate-400 ml-2 py-0.5 px-2 bg-slate-100 rounded-md">{filteredIssues.length} total</span></h3>
+        {selectedRowIds.size > 0 && (
+          <div className="flex items-center gap-3 slide-in-right">
+            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
+              {selectedRowIds.size} Selected
+            </span>
+            <button onClick={() => executeBulkStatus('in_progress')} className="text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 px-4 py-1.5 rounded-lg hover:bg-amber-100 transition shadow-sm">Mark In-Progress</button>
+            <button onClick={() => executeBulkStatus('resolved')} className="text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-1.5 rounded-lg hover:bg-emerald-100 transition shadow-sm">Mark Resolved</button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        <table className="w-full text-left text-sm text-slate-600 relative border-collapse">
+          <thead className="text-xs text-slate-400 uppercase bg-slate-50/80 backdrop-blur-md sticky top-0 z-10">
+            <tr>
+              <th className="p-4 w-12 border-b border-slate-200">
+                <input type="checkbox" onChange={(e) => setSelectedRowIds(e.target.checked ? new Set(filteredIssues.map(i => i.id)) : new Set())} checked={selectedRowIds.size === filteredIssues.length && filteredIssues.length > 0} className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
+              </th>
+              <th className="px-4 py-4 font-bold border-b border-slate-200">Media</th>
+              <th className="px-4 py-4 font-bold border-b border-slate-200">Incident Details</th>
+              <th className="px-4 py-4 font-bold border-b border-slate-200">Status & Verification</th>
+              <th className="px-4 py-4 font-bold border-b border-slate-200">Registered</th>
+              <th className="px-6 py-4 font-bold text-right border-b border-slate-200">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filteredIssues.map((issue) => {
+              const badge = statusBadge(issue.status);
+              return (
+                <tr key={issue.id} className="hover:bg-slate-50/80 transition-colors group">
+                  <td className="p-4">
+                    <input type="checkbox" checked={selectedRowIds.has(issue.id)} onChange={() => toggleRowSelect(issue.id)} className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <img src={issue.beforeImage || issue.beforeImageUrl || 'https://via.placeholder.com/150'} className="w-10 h-10 rounded-lg object-cover bg-slate-100 border border-slate-200 shadow-sm cursor-pointer group-hover:scale-105 transition-transform" onClick={() => setSelectedIssue(issue)} alt="Thumbnail" />
+                  </td>
+                  <td className="px-4 py-4 max-w-[300px] cursor-pointer" onClick={() => setSelectedIssue(issue)}>
+                    <div className="font-bold text-slate-900 mb-1 tracking-tight">{issue.category} <span className="font-mono text-[10px] text-slate-400 ml-2 font-normal bg-slate-100 px-1 py-0.5 rounded">#{issue.id?.slice(-5)}</span></div>
+                    <div className="text-xs text-slate-500 truncate leading-relaxed">{issue.description || 'No description'}</div>
+                    <div className="text-[11px] text-slate-400 mt-1.5 flex items-center font-medium"><MapPin size={12} className="mr-1" /> {issue.neighbourhood || 'Location Unknown'}</div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${badge.bg} ${badge.text}`}>
+                      {badge.label}
+                    </span>
+                    {issue.verified_by_citizen && (
+                      <span className="inline-flex mt-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 items-center whitespace-nowrap">
+                        <ShieldCheck size={10} className="mr-1" /> Citizen Verified
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-4 text-xs whitespace-nowrap text-slate-500">
+                    <div className="font-medium text-slate-700">{new Date(issue.createdAt || issue.reported_at).toLocaleDateString()}</div>
+                    <div className="text-[11px] mt-0.5">{timeAgo(issue.createdAt || issue.reported_at)}</div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button className="text-indigo-600 hover:text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-600 transition shadow-sm border border-transparent hover:border-indigo-700" onClick={() => setSelectedIssue(issue)}>
+                      Update
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderAnalytics = () => (
+    <div className="space-y-6 fade-in">
+      <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-5xl">
+        <h3 className="font-bold tracking-tight text-slate-900 text-xl flex items-center mb-8">
+          <BarChart3 size={24} className="mr-2 text-indigo-600" /> Executive Analytics
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="border border-slate-100 rounded-2xl p-6 bg-slate-50 shadow-sm">
+            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Avg Resolution Time</h4>
+            <div className="text-4xl font-extrabold text-slate-900 tracking-tight">42 hrs</div>
+            <p className="text-sm text-emerald-600 mt-3 font-semibold flex items-center"><TrendingUp size={16} className="mr-1.5" /> 12% faster than last month</p>
+          </div>
+
+          <div className="border border-slate-100 rounded-2xl p-6 bg-slate-50 shadow-sm">
+            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Citizen Engagement</h4>
+            <div className="text-4xl font-extrabold text-slate-900 tracking-tight">842 <span className="text-xl text-slate-400 font-medium tracking-normal">Tokens</span></div>
+            <p className="text-sm text-slate-500 mt-3 font-medium flex items-center"><Users size={16} className="mr-1.5" /> Claim tokens issued this period</p>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center p-6 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+          <div>
+            <h4 className="font-bold text-indigo-900 text-lg">Generate Offline Report</h4>
+            <p className="text-sm text-indigo-700/80 mt-1 font-medium">Export the comprehensive dataset tailored for municipal board review.</p>
+          </div>
+          <button className="flex items-center px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-bold shadow-sm hover:bg-indigo-700 transition hover:shadow-md">
+            <Download size={18} className="mr-2" /> Export to CSV
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSettings = () => (
+    <div className="space-y-6 fade-in">
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm w-full max-w-3xl overflow-hidden">
+        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
+          <h3 className="font-bold tracking-tight text-slate-900 text-xl flex items-center">
+            <Settings size={22} className="mr-2 text-slate-400" /> Administrative Personnel
+          </h3>
+        </div>
+
+        <div className="p-8 space-y-8">
+          <div className="flex items-center pb-8 border-b border-slate-100">
+            <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-700 font-bold text-2xl mr-6 border-2 border-indigo-100 shadow-sm">
+              OP
+            </div>
+            <div>
+              <h4 className="text-xl font-extrabold text-slate-900 tracking-tight">Officer Puneet</h4>
+              <p className="text-sm text-slate-500 font-medium mt-1 bg-slate-100 inline-block px-2.5 py-1 rounded-md">Public Works Department • Ward C</p>
+              <p className="text-xs text-slate-400 mt-2 flex items-center"><Clock size={12} className="mr-1" /> Shift: 08:00 AM - 04:00 PM</p>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-base font-bold text-slate-900 mb-5 flex items-center"><AlertTriangle size={18} className="mr-2 text-amber-500" /> Notification Preferences</h4>
+            <label className="flex items-center space-x-3 cursor-pointer group">
+              <input type="checkbox" className="form-checkbox h-5 w-5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 transition" defaultChecked />
+              <span className="text-slate-700 font-medium group-hover:text-slate-900 transition-colors">Alert me instantly regarding High-Priority categorizations</span>
+            </label>
+          </div>
+
+          <div className="pt-8 border-t border-slate-100">
+            <h4 className="text-base font-bold text-slate-900 mb-5 flex items-center"><Users size={18} className="mr-2 text-slate-400" /> Team Management</h4>
+            <button className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition shadow-sm hover:shadow flex items-center">
+              Invite New Officer <ArrowUpRight size={16} className="ml-2 opacity-70" />
+            </button>
+            <p className="text-xs text-slate-400 mt-3 max-w-sm leading-relaxed">Invitations will automatically route new officers to your specific municipal department overview securely.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex h-screen w-full bg-slate-50 overflow-hidden text-slate-800 font-sans">
-      
-      {/* SIDEBAR */}
-      <aside className="w-64 bg-white border-r border-slate-200 flex flex-col justify-between hidden md:flex shrink-0">
+
+      {/* SIDEBAR - Dark SaaS Theme */}
+      <aside className="w-64 bg-slate-900 flex flex-col justify-between hidden md:flex shrink-0 shadow-xl z-20">
         <div>
-          <div className="h-16 flex items-center px-6 border-b border-slate-100">
-            <ShieldCheck className="text-slate-900 mr-2" size={24} />
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">CIVIX <span className="text-indigo-600">Admin</span></h1>
+          <div className="h-20 flex items-center px-6 border-b border-slate-800/50">
+            <div className="bg-indigo-500 p-1.5 rounded-lg mr-3 shadow-lg shadow-indigo-500/20">
+              <ShieldCheck className="text-white" size={22} />
+            </div>
+            <h1 className="text-xl font-extrabold text-white tracking-tight">CIVIX <span className="text-indigo-400 font-medium">Admin</span></h1>
           </div>
-          <nav className="p-4 space-y-1">
-            <button className="w-full flex items-center px-3 py-2.5 bg-indigo-50 text-indigo-700 rounded-lg font-medium transition-colors">
-              <LayoutDashboard size={18} className="mr-3" /> Dashboard
-            </button>
-            <button className="w-full flex items-center px-3 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors">
-              <MapIcon size={18} className="mr-3" /> Map View
-            </button>
-            <button className="w-full flex items-center px-3 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors">
-              <FileText size={18} className="mr-3" /> Reports
-            </button>
-            <button className="w-full flex items-center px-3 py-2.5 text-slate-600 hover:bg-slate-50 rounded-lg font-medium transition-colors">
-              <Settings size={18} className="mr-3" /> Officer Settings
+          <nav className="p-4 space-y-1.5 mt-2">
+            {[
+              { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+              { id: 'map', icon: MapIcon, label: 'Live Map' },
+              { id: 'issues', icon: ListTodo, label: 'Issue Management' },
+              { id: 'analytics', icon: BarChart3, label: 'Analytics & Reports' },
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${activeTab === item.id ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/50' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
+              >
+                <item.icon size={18} className={`mr-3 ${activeTab === item.id ? 'opacity-100' : 'opacity-70'}`} /> {item.label}
+              </button>
+            ))}
+
+            <div className="pt-4 pb-2">
+              <p className="px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">System</p>
+            </div>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`w-full flex items-center px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/50' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
+            >
+              <Settings size={18} className={`mr-3 ${activeTab === 'settings' ? 'opacity-100' : 'opacity-70'}`} /> Settings & Personnel
             </button>
           </nav>
         </div>
-        <div className="p-4 border-t border-slate-100">
-          <button 
+        <div className="p-4 border-t border-slate-800/50">
+          <button
             onClick={handleLogout}
-            className="w-full flex items-center px-3 py-2 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors"
+            className="w-full flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-rose-500/10 rounded-xl font-semibold transition-colors group"
           >
-            <LogOut size={18} className="mr-3" /> Logout
+            <LogOut size={18} className="mr-3 group-hover:text-rose-400 transition-colors" /> Logout Session
           </button>
         </div>
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        
-        {/* TOP NAVBAR */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50 relative">
+
+        {/* TOP NAVBAR - Crisp White, subtle borders */}
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0 relative z-10">
           <div className="flex items-center">
-            <h2 className="text-xl font-semibold text-slate-800">Command Center</h2>
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight capitalize">{activeTab.replace('-', ' ')}</h2>
+            {loading && <Loader2 size={18} className="ml-4 animate-spin text-indigo-500" />}
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={16} />
-              <input 
-                type="text" 
-                placeholder="Search by keyword..." 
+
+          <div className="flex items-center space-x-6">
+
+            <div className="relative group hidden lg:block">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} />
+              <input
+                type="text"
+                placeholder="Search database..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-64 bg-slate-50 transition-shadow"
+                className="pl-10 pr-4 py-2.5 border border-transparent rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white w-64 bg-slate-100 text-slate-800 transition-all placeholder:text-slate-400"
               />
             </div>
-            
-            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg p-1 transition-colors hover:bg-white">
-              <Filter className="text-slate-400 ml-2" size={14} />
-              <select 
-                value={statusFilter} 
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-transparent border-none text-sm font-medium text-slate-600 py-1 pl-2 pr-6 focus:outline-none cursor-pointer"
-              >
-                <option value="All">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Resolved">Resolved</option>
-              </select>
-            </div>
 
-            <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg p-1 transition-colors hover:bg-white">
-              <select 
-                value={categoryFilter} 
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="bg-transparent border-none text-sm font-medium text-slate-600 py-1 pl-2 pr-6 focus:outline-none cursor-pointer"
-              >
-                {categories.map(cat => <option key={cat} value={cat}>{cat === 'All' ? 'All Categories' : cat}</option>)}
-              </select>
-            </div>
-            
-            <div className="h-8 w-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border border-indigo-200 shadow-sm ml-2">
-              OP
+            <div className="h-6 w-px bg-slate-200 hidden lg:block"></div>
+
+            <button className="relative text-slate-400 hover:text-slate-600 transition-colors">
+              <Bell size={20} />
+              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white"></span>
+            </button>
+
+            <div className="flex items-center gap-3 cursor-pointer pl-2">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-slate-900 leading-tight">Puneet S.</p>
+                <p className="text-xs font-medium text-slate-500">Admin</p>
+              </div>
+              <div className="h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-indigo-200 shadow-sm">
+                PU
+              </div>
             </div>
           </div>
         </header>
 
-        {/* SCROLLABLE PAGE BODY */}
-        <div className="flex-1 overflow-auto p-6 bg-slate-50">
-          
+        {/* PAGE BODY - Deep Padding, gap spacing */}
+        <div className="flex-1 overflow-auto p-8 relative z-0">
           {error && (
-             <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-100 text-red-600 flex items-center shadow-sm">
-              <span className="font-semibold mr-2">System Error:</span> {error}
+            <div className="mb-8 p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 flex items-center shadow-sm font-medium">
+              <AlertTriangle size={18} className="mr-3" /> {error}
             </div>
           )}
 
-          {/* KEY METRICS */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-              <span className="text-xs font-bold text-slate-400 tracking-wider uppercase">Total Reported</span>
-              <div className="text-3xl font-extrabold text-slate-800 mt-2">{stats.total}</div>
-            </div>
-            <div className="bg-white p-5 rounded-xl border border-red-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-              <span className="text-xs font-bold text-red-400 tracking-wider uppercase">Open / Pending</span>
-              <div className="text-3xl font-extrabold text-red-600 mt-2">{stats.pending}</div>
-            </div>
-            <div className="bg-white p-5 rounded-xl border border-blue-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-              <span className="text-xs font-bold text-blue-400 tracking-wider uppercase">In Progress</span>
-              <div className="text-3xl font-extrabold text-blue-600 mt-2">{stats.inProgress}</div>
-            </div>
-            <div className="bg-white p-5 rounded-xl border border-green-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-              <span className="text-xs font-bold text-green-500 tracking-wider uppercase">Resolved</span>
-              <div className="text-3xl font-extrabold text-green-600 mt-2">{stats.resolved}</div>
-            </div>
-          </div>
+          {activeTab === 'dashboard' && renderDashboard()}
+          {activeTab === 'map' && renderMap()}
+          {activeTab === 'issues' && renderIssues()}
+          {activeTab === 'analytics' && renderAnalytics()}
+          {activeTab === 'settings' && renderSettings()}
 
-          {/* MAIN TWO-COLUMN LAYOUT */}
-          <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-270px)] min-h-[500px]">
-            
-            {/* DATA TABLE (60%) */}
-            <div className="lg:w-[60%] flex flex-col bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden relative">
-              <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-white z-10 shrink-0">
-                <h3 className="font-semibold text-slate-800">Recent Citations & Reports</h3>
-                <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">{filteredIssues.length} results found</span>
-              </div>
-              
-              <div className="overflow-y-auto flex-1 p-0">
-                {loading ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                    <Loader2 size={32} className="animate-spin mb-4" />
-                    <p>Loading database records...</p>
-                  </div>
-                ) : filteredIssues.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400 p-8 text-center bg-slate-50">
-                    <CheckCircle2 size={48} className="mb-4 text-slate-200" />
-                    <h4 className="text-lg font-medium text-slate-600 mb-1">No reports matching criteria</h4>
-                    <p className="text-sm">Try adjusting your filters or search constraints.</p>
-                  </div>
-                ) : (
-                  <table className="w-full text-left text-sm text-slate-600 relative">
-                    <thead className="text-xs text-slate-400 uppercase bg-slate-50 sticky top-0 z-10 border-b border-slate-200 shadow-sm">
-                      <tr>
-                        <th className="px-5 py-3 font-semibold">Incident</th>
-                        <th className="px-5 py-3 font-semibold">Classification</th>
-                        <th className="px-5 py-3 font-semibold">Status</th>
-                        <th className="px-5 py-3 font-semibold">Registered</th>
-                        <th className="px-5 py-3 font-semibold text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredIssues.map((issue) => {
-                        const badge = statusBadge(issue.status);
-                        return (
-                          <tr 
-                            key={issue.id} 
-                            onClick={() => setSelectedIssue(issue)}
-                            className="hover:bg-indigo-50 cursor-pointer transition-colors group"
-                          >
-                            <td className="px-5 py-3 align-middle">
-                              <div className="flex items-center">
-                                <img 
-                                  src={issue.beforeImage || issue.beforeImageUrl || 'https://via.placeholder.com/150'} 
-                                  className="w-10 h-10 rounded-full object-cover mr-3 bg-slate-100 border border-slate-200 group-hover:border-indigo-300 transition-colors"
-                                  alt="Thumbnail"
-                                />
-                                <div className="font-mono text-slate-600 text-xs hidden sm:block w-20 truncate">#{issue.id?.slice(-5).toUpperCase()}</div>
-                              </div>
-                            </td>
-                            <td className="px-5 py-3 align-middle max-w-[200px]">
-                              <div className="font-semibold text-slate-800 mb-0.5 truncate">{issue.category || 'Unassigned'}</div>
-                              <div className="text-xs text-slate-500 truncate">{issue.neighbourhood || 'Location Unknown'}</div>
-                            </td>
-                            <td className="px-5 py-3 align-middle">
-                              <span className={`inline-flex items-center px-2 py-1.5 rounded-md text-[10px] font-bold tracking-wide uppercase ${badge.bg} ${badge.text}`}>
-                                {badge.label}
-                                {issue.verified_by_citizen && <ShieldCheck size={12} className="ml-1 opacity-80" />}
-                              </span>
-                            </td>
-                            <td className="px-5 py-3 align-middle text-xs whitespace-nowrap text-slate-500">
-                              {timeAgo(issue.createdAt || issue.reported_at)}
-                            </td>
-                            <td className="px-5 py-3 align-middle text-right">
-                              <button 
-                                className="text-indigo-600 bg-indigo-50 hover:bg-indigo-600 hover:text-white px-3 py-1.5 rounded-lg font-medium text-xs transition-colors flex items-center ml-auto border border-indigo-100 hover:border-indigo-600 shadow-sm"
-                                onClick={(e) => { e.stopPropagation(); setSelectedIssue(issue); }}
-                              >
-                                View <ArrowRight size={14} className="ml-1" />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-            </div>
-
-            {/* GEO MAP VIEW (40%) */}
-            <div className="lg:w-[40%] bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col relative z-0">
-              <div className="px-5 py-4 border-b border-slate-100 bg-white shadow-sm shrink-0 flex items-center">
-                <MapPin size={16} className="text-slate-400 mr-2" />
-                <h3 className="font-semibold text-slate-800">Geographic Heatmap</h3>
-              </div>
-              <div className="flex-1 w-full bg-slate-100 relative isolate">
-                <MapView 
-                  issues={filteredIssues}
-                  center={mapCenter}
-                  zoom={12}
-                  loading={loading}
-                />
-              </div>
-            </div>
-
-          </div>
         </div>
       </main>
 
-      {/* DRAWER / MODAL OVERLAY */}
+      {/* ENHANCED SLIDE-OUT DRAWER */}
       {selectedIssue && (
         <>
-          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setSelectedIssue(null)}></div>
-          <div className="fixed inset-y-0 right-0 w-full md:w-[450px] bg-white shadow-2xl z-50 transform transition-transform duration-300 flex flex-col border-l border-slate-200">
-            
+          <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-40 transition-opacity" onClick={() => setSelectedIssue(null)}></div>
+          <div className="fixed inset-y-0 right-0 w-full md:w-[480px] bg-white shadow-2xl z-50 transform transition-transform duration-300 flex flex-col border-l border-slate-200">
+
             {/* Drawer Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shadow-sm">
+            <div className="flex items-center justify-between px-8 py-5 border-b border-slate-100 bg-white relative z-10 shrink-0">
               <div>
-                <h2 className="text-lg font-bold text-slate-800">Review Report</h2>
-                <div className="text-xs font-mono text-slate-500 mt-0.5">ID: {selectedIssue.id}</div>
+                <h2 className="text-xl font-extrabold tracking-tight text-slate-900 flex items-center">Complaint Overview</h2>
+                <div className="text-xs font-mono font-medium text-slate-400 mt-1">ID: {selectedIssue.id}</div>
               </div>
-              <button 
-                onClick={() => setSelectedIssue(null)} 
-                className="p-2 bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-full transition-colors shadow-sm"
+              <button
+                onClick={() => setSelectedIssue(null)}
+                className="p-2.5 bg-slate-50 border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full transition-colors shadow-sm"
               >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Drawer Content Space */}
-            <div className="flex-1 overflow-y-auto p-6 bg-white">
-              
-              {/* Evidence Photo */}
-              <div className="w-full h-64 bg-slate-100 rounded-xl overflow-hidden mb-6 relative border border-slate-200 shadow-sm">
-                <img 
-                  src={selectedIssue.beforeImage || selectedIssue.beforeImageUrl || 'https://via.placeholder.com/500'} 
-                  alt="Documentation" 
-                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
-                />
-                <div className="absolute top-3 left-3 bg-slate-900/70 backdrop-blur text-white text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider shadow-sm">
-                  Field Documentation
-                </div>
+            {/* Drawer Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
+
+              <div className="w-full h-72 bg-slate-200 rounded-2xl overflow-hidden mb-8 relative border border-slate-200 shadow-inner group">
+                <img src={selectedIssue.beforeImage || selectedIssue.beforeImageUrl || 'https://via.placeholder.com/500'} alt="Documentation" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm">Field Evidence</div>
               </div>
 
-              {/* Status Update Module */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-6 shadow-sm">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Operational Status</label>
-                <div className="flex gap-2">
-                  <select 
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-sm">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Operational Status</label>
+                <div className="relative">
+                  <select
                     value={selectedIssue.status?.toLowerCase() || 'pending'}
                     onChange={(e) => handleStatusChange(selectedIssue.id, e.target.value)}
                     disabled={isUpdating}
-                    className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow shadow-sm cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm cursor-pointer appearance-none"
                   >
                     <option value="pending">⚠️ Pending Validation</option>
                     <option value="in_progress">🚧 Action In Progress</option>
@@ -376,73 +562,39 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Verified Notice */}
               {selectedIssue.verified_by_citizen && (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6 flex items-start shadow-sm">
-                  <div className="bg-emerald-100 p-1.5 rounded-full mr-3 text-emerald-600 mt-0.5 border border-emerald-200">
-                    <ShieldCheck size={18} />
-                  </div>
+                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 mb-8 flex items-start shadow-sm">
+                  <div className="bg-emerald-100 p-2 rounded-xl mr-4 text-emerald-600 mt-0.5 border border-emerald-200 shadow-sm"><ShieldCheck size={20} /></div>
                   <div>
-                    <h4 className="text-sm font-bold text-emerald-800">Resolution Authenticated</h4>
-                    <p className="text-xs text-emerald-600 mt-1">A local citizen has physically uploaded verification of the resolution.</p>
-                  </div>
-                </div>
-              )}
-              {selectedIssue.verification_photo_url && (
-                <div className="mb-6 bg-white p-3 border border-slate-200 rounded-xl shadow-sm">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center"><CheckCircle2 size={14} className="mr-1.5 text-slate-400" /> Completion Evidence</h4>
-                  <div className="w-full h-40 bg-slate-100 rounded-lg overflow-hidden relative border border-slate-200">
-                    <img 
-                      src={selectedIssue.verification_photo_url} 
-                      alt="Verification" 
-                      className="w-full h-full object-cover"
-                    />
+                    <h4 className="text-sm font-extrabold text-emerald-900 tracking-tight">Resolution Authenticated</h4>
+                    <p className="text-xs text-emerald-700 mt-1.5 font-medium leading-relaxed">Citizen successfully uploaded physical verification of the structural resolution.</p>
                   </div>
                 </div>
               )}
 
-              {/* Metadata Panel */}
-              <div className="space-y-5 bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
+              <div className="space-y-6 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
                 <div>
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Asset Category</h4>
-                  <p className="font-semibold text-slate-800 text-sm bg-slate-50 inline-block px-3 py-1 rounded-md border border-slate-100">{selectedIssue.category || 'Uncategorized'}</p>
-                </div>
-                
-                <div className="pt-2 border-t border-slate-100">
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Citizen Deposition</h4>
-                  <p className="text-slate-600 text-sm leading-relaxed bg-slate-50 border border-slate-100 p-3 rounded-lg overflow-wrap break-words whitespace-pre-wrap">{selectedIssue.description || selectedIssue.text || 'No textual description provided by the reporter.'}</p>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Asset Category</h4>
+                  <p className="font-bold text-slate-900 text-sm bg-slate-100 inline-block px-3 py-1.5 rounded-lg border border-slate-200">{selectedIssue.category || 'Uncategorized'}</p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Logged Timestamp</h4>
-                    <p className="text-slate-700 text-sm flex items-center font-medium">
-                      <Clock size={14} className="mr-1.5 text-slate-400" /> 
-                      {timeAgo(selectedIssue.createdAt || selectedIssue.reported_at)}
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Coordinates</h4>
-                    <p className="text-slate-700 text-sm flex items-center font-medium">
-                      <MapPin size={14} className="mr-1.5 text-slate-400" /> 
-                      <span className="truncate">{selectedIssue.neighbourhood || 'Unknown Node'}</span>
-                    </p>
-                    {selectedIssue.lat && (
-                      <p className="text-[10px] font-mono text-slate-500 mt-1 ml-5">
-                        {selectedIssue.lat.toFixed(5)}, {selectedIssue.lng.toFixed(5)}
-                      </p>
-                    )}
-                  </div>
+                <div className="pt-4 border-t border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Citizen Deposition</h4>
+                  <p className="text-slate-700 text-sm leading-relaxed bg-slate-50 border border-slate-100 p-4 rounded-xl overflow-wrap break-words whitespace-pre-wrap font-medium">{selectedIssue.description || selectedIssue.text || 'No textual description.'}</p>
                 </div>
 
-                {selectedIssue.claimToken && (
-                  <div className="pt-2 border-t border-slate-100">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center">Security Hash <ShieldCheck size={12} className="ml-1 text-slate-300"/></h4>
-                    <p className="font-mono text-xs text-slate-500 bg-slate-50 px-2.5 py-1.5 rounded border border-slate-200 break-all">{selectedIssue.claimToken}</p>
+                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Logged Timestamp</h4>
+                    <p className="text-slate-800 text-sm flex items-center font-bold"><Clock size={14} className="mr-2 text-slate-400" /> {timeAgo(selectedIssue.createdAt || selectedIssue.reported_at)}</p>
                   </div>
-                )}
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Coordinates</h4>
+                    <p className="text-slate-800 text-sm flex items-center font-bold"><MapPin size={14} className="mr-2 text-slate-400" /> <span className="truncate">{selectedIssue.neighbourhood || 'Unknown Node'}</span></p>
+                  </div>
+                </div>
               </div>
-              
+
             </div>
           </div>
         </>

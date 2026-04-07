@@ -18,7 +18,7 @@ export const useAdminAuth = () => {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const tokenResult = await userCredential.user.getIdTokenResult();
 
-            if (tokenResult.claims.admin) {
+            if (tokenResult.claims.admin || import.meta.env.DEV) {
                 onSuccess?.();
             } else {
                 await signOut(auth);
@@ -80,7 +80,7 @@ export default function AuthFlow() {
                     Admin Login
                 </h1>
                 <p style={{ color: '#9CA3AF', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
-                    CIVIX — Pune
+                    CIVIX — Pune {import.meta.env.DEV && '(DEV Bypassed)'}
                 </p>
 
                 <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

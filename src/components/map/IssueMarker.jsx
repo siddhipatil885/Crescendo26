@@ -29,84 +29,50 @@ export default function IssueMarker({ issue }) {
       icon={getMarkerIcon(status)}
       title={`${category} - ${statusDisplay}`}
     >
-      <Popup>
-        <div style={{ minWidth: '250px' }}>
-          <div style={{ marginBottom: '8px' }}>
-            <span
-              style={{
-                display: 'inline-block',
-                padding: '4px 12px',
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                borderRadius: '9999px',
-                fontSize: '12px',
-                fontWeight: '600',
-              }}
-            >
+      <Popup className="custom-popup">
+        <div className="w-[280px] p-1 font-sans">
+          <div className="flex items-center justify-between mb-3">
+            <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-wider">
               {category || 'Unknown'}
             </span>
-          </div>
-
-          <p
-            style={{
-              margin: '8px 0',
-              fontSize: '14px',
-              lineHeight: '1.4',
-              color: '#1f2937',
-            }}
-          >
-            {description || text || 'No description'}
-          </p>
-
-          <div style={{ marginTop: '12px', marginBottom: '12px' }}>
             <span
-              style={{
-                display: 'inline-block',
-                padding: '4px 12px',
-                backgroundColor:
-                  status === 'pending'
-                    ? '#dc2626'
-                    : status === 'in_progress'
-                      ? '#f59e0b'
-                      : '#16a34a',
-                color: 'white',
-                borderRadius: '9999px',
-                fontSize: '12px',
-                fontWeight: '600',
-              }}
+              className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                status === 'pending'
+                  ? 'bg-rose-100 text-rose-700'
+                  : status === 'in_progress'
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'bg-emerald-100 text-emerald-700'
+              }`}
             >
               {statusDisplay}
             </span>
           </div>
 
-          {previewImage && !isImageBroken && (
-            <div style={{ marginTop: '12px' }}>
+          <div className="max-h-[140px] overflow-y-auto mb-4 custom-scrollbar bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+            <p className="text-xs text-slate-600 leading-relaxed break-words font-medium">
+              {description || text || 'No description'}
+            </p>
+          </div>
+
+          {previewImage ? (
+            <div className="mt-2 rounded-xl overflow-hidden shadow-sm border border-slate-200">
               <img
-                src={previewImage}
-                alt="Issue"
+                src={isImageBroken ? 'https://via.placeholder.com/300x150?text=Image+Unavailable' : previewImage}
+                alt="Issue evidence"
                 loading="lazy"
                 onError={handleImageError}
-                style={{
-                  width: '100%',
-                  height: '150px',
-                  objectFit: 'cover',
-                  borderRadius: '4px',
-                  border: '1px solid #e5e7eb',
-                }}
+                className="w-full h-36 object-cover bg-slate-100"
               />
             </div>
+          ) : (
+             <div className="mt-2 w-full h-36 bg-slate-100 rounded-xl flex items-center justify-center border border-slate-200 text-xs text-slate-400 font-medium">
+               No Media Uploaded
+             </div>
           )}
 
-          <div
-            style={{
-              marginTop: '12px',
-              fontSize: '11px',
-              color: '#6b7280',
-              borderTop: '1px solid #e5e7eb',
-              paddingTop: '8px',
-            }}
-          >
-            Location: {lat?.toFixed(4)}, {lng?.toFixed(4)}
+          <div className="mt-4 pt-3 border-t border-slate-100 text-[10px] font-bold text-slate-400 flex justify-between items-center tracking-wide">
+            <span>Coordinates</span>
+            <span>{lat?.toFixed(4)}, {lng?.toFixed(4)}</span>
           </div>
         </div>
       </Popup>
