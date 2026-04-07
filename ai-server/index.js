@@ -96,7 +96,14 @@ function getDepartmentByCategory(category) {
 }
 
 function getContractor(rawText) {
-  const text = (rawText || "").toLowerCase();
+  const normalize = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim()
+      .replace(/\s+/g, " ");
+
+  const text = normalize(rawText);
 
   const priorityRoadMatches = [
     "bibwewadi-kondhwa road",
@@ -113,21 +120,20 @@ function getContractor(rawText) {
 
   const contractorForPriorityRoads = "PMC Tender (Contractor Not Public)";
 
-  if (priorityRoadMatches.some((road) => text.includes(road))) {
+  const hasExactOrBoundaryMatch = priorityRoadMatches.some((road) => {
+    const normalizedRoad = normalize(road);
+    if (!normalizedRoad) return false;
+    if (text === normalizedRoad) return true;
+    const escaped = normalizedRoad.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const boundaryRegex = new RegExp(`(^|\\s)${escaped}(\\s|$)`);
+    return boundaryRegex.test(text);
+  });
+
+  if (hasExactOrBoundaryMatch) {
     return contractorForPriorityRoads;
   }
 
-  const fallbackContractors = [
-    "ABC Infra Pvt Ltd",
-    "XYZ Constructions",
-    "UrbanBuild Corp",
-    "MetroWorks Ltd",
-    "CivicLine Projects",
-    "RoadFix Solutions",
-  ];
-
-  const pick = Math.floor(Math.random() * fallbackContractors.length);
-  return fallbackContractors[pick];
+  return "Unassigned";
 }
 
 function fallbackClassify(rawText) {
