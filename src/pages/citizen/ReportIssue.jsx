@@ -19,10 +19,12 @@ const EMPTY_AUTO_POPULATION = {
   lng: null,
   location: '',
   neighbourhood: '',
+  issueType: '',
   aiCategory: '',
   subcategory: '',
   civixCategory: '',
   description: '',
+  severity: '',
 };
 
 const EMPTY_USER_DETAILS = {
@@ -63,10 +65,12 @@ export default function ReportIssue({ draftImage, onSubmit }) {
       lng: autoData.lng,
       neighbourhood: overrides.neighbourhood || autoData.neighbourhood,
       location: overrides.location || autoData.location,
+      issueType: autoData.issueType,
       aiCategory,
       subcategory,
       civixCategory,
       description: overrides.description || autoData.description,
+      severity: autoData.severity,
       department: getDepartmentForCategory(civixCategory),
     };
   }, [autoData, overrides]);
@@ -85,39 +89,57 @@ export default function ReportIssue({ draftImage, onSubmit }) {
       setError('');
 
       try {
-        const location = await getCurrentLocation();
-        const reverseLookup = await reverseGeocode(location.lat, location.lng).catch(() => ({
+        const location = await getCurrentLocation().catch((locationError) => {
+          console.warn('Location lookup failed during complaint preparation:', locationError);
+          return {
+            lat: null,
+            lng: null,
+          };
+        });
+
+        const reverseLookup = await (location.lat != null && location.lng != null
+          ? reverseGeocode(location.lat, location.lng)
+          : Promise.resolve({
+              displayName: '',
+              neighbourhood: '',
+            })
+        ).catch(() => ({
           displayName: '',
           neighbourhood: '',
         }));
 
-        const ai = await analyzeIssueImage(reportFile, {
-          lat: location.lat,
-          lng: location.lng,
-          neighbourhood: reverseLookup.neighbourhood,
-          address: reverseLookup.displayName,
-        });
+        let aiResult = null;
+        let aiErrorMessage = '';
+
+        try {
+          aiResult = await analyzeIssueImage(reportFile);
+        } catch (aiError) {
+          aiErrorMessage = aiError.message || 'AI analysis is unavailable right now. Please review the complaint details manually.';
+        }
 
         if (cancelled) {
           return;
         }
 
-        if (ai.status !== 'success') {
-          setError(ai.description || 'AI analysis could not classify this image. Please complete the details manually.');
-        }
+        const aiCategory = aiResult?.category || '';
+        const subcategory = aiResult?.subcategory || '';
 
         setAutoData({
           lat: location.lat,
           lng: location.lng,
           location: reverseLookup.displayName,
           neighbourhood: reverseLookup.neighbourhood,
-          aiCategory: ai.status === 'success' ? ai.issue_category : '',
-          subcategory: ai.status === 'success' ? ai.issue_subcategory : '',
-          civixCategory: ai.status === 'success'
-            ? (ai.civixCategory || getCivixCategoryFromAiClassification(ai.issue_category, ai.issue_subcategory))
-            : '',
-          description: ai.description || '',
+          issueType: aiResult?.issue_type || '',
+          aiCategory,
+          subcategory,
+          civixCategory: getCivixCategoryFromAiClassification(aiCategory, subcategory),
+          description: aiResult?.description || '',
+          severity: aiResult?.severity || '',
         });
+
+        if (aiErrorMessage) {
+          setError(aiErrorMessage);
+        }
       } catch (autopopulateError) {
         if (!cancelled) {
           setError(autopopulateError.message || 'Failed to prepare complaint details.');
@@ -145,28 +167,18 @@ export default function ReportIssue({ draftImage, onSubmit }) {
     setError('');
 
     try {
-      const ai = await analyzeIssueImage(reportFile, {
-        lat: autoData.lat,
-        lng: autoData.lng,
-        neighbourhood: resolvedDraft.neighbourhood,
-        address: resolvedDraft.location,
-      });
-
-      if (ai.status !== 'success') {
-        setError(ai.description || 'AI analysis could not classify this image. Please update the details manually.');
-      }
+      const ai = await analyzeIssueImage(reportFile);
+      const nextAiCategory = ai.category || '';
+      const nextSubcategory = ai.subcategory || '';
 
       setAutoData((current) => ({
         ...current,
-        aiCategory: ai.status === 'success' ? (ai.issue_category || current.aiCategory) : current.aiCategory,
-        subcategory: ai.status === 'success' ? (ai.issue_subcategory || current.subcategory) : current.subcategory,
-        civixCategory: ai.status === 'success'
-          ? (ai.civixCategory || getCivixCategoryFromAiClassification(
-              ai.issue_category || current.aiCategory,
-              ai.issue_subcategory || current.subcategory
-            ))
-          : current.civixCategory,
+        issueType: ai.issue_type || current.issueType,
+        aiCategory: nextAiCategory,
+        subcategory: nextSubcategory,
+        civixCategory: getCivixCategoryFromAiClassification(nextAiCategory, nextSubcategory),
         description: ai.description || current.description,
+        severity: ai.severity || current.severity,
       }));
       setOverrides((current) => ({
         ...current,
@@ -203,10 +215,12 @@ export default function ReportIssue({ draftImage, onSubmit }) {
       const createdIssue = await createIssue({
         category: resolvedDraft.civixCategory,
         subcategory: resolvedDraft.subcategory,
+        issue_type: resolvedDraft.issueType,
         issue_category: resolvedDraft.aiCategory,
         issue_subcategory: resolvedDraft.subcategory,
         description: resolvedDraft.description,
         ai_description: autoData.description || resolvedDraft.description,
+        severity: resolvedDraft.severity,
         status: ISSUE_STATUS.OPEN,
         lat: resolvedDraft.lat,
         lng: resolvedDraft.lng,
@@ -274,7 +288,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
         <div className="flex-col gap-4">
           <div className="flex-row justify-between items-center">
             <div style={{ fontSize: '0.7rem', fontWeight: '700', color: '#6B7280', textTransform: 'uppercase' }}>
-              AI Analysis
+              Complaint Details
             </div>
             <button
               type="button"
@@ -291,7 +305,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
                 cursor: !reportFile || isRefreshingAI ? 'not-allowed' : 'pointer',
               }}
             >
-              {isRefreshingAI ? 'Re-analyzing...' : 'Re-analyze'}
+              {isRefreshingAI ? 'Analyzing...' : 'Re-analyze'}
             </button>
           </div>
 

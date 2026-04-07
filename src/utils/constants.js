@@ -4,6 +4,7 @@ export const ISSUE_CATEGORIES = [
   'Traffic Signal Issues',
   'Road Markings & Speed Breakers',
   'Traffic Obstruction',
+  'Stray Animals',
   'Trash / Illegal Dumping',
   'Water Leak / Drainage',
   'Sewage / Sanitation',
@@ -30,6 +31,7 @@ export const CATEGORY_TO_DEPARTMENT = {
   'Traffic Signal Issues': 'Traffic Operations Department',
   'Road Markings & Speed Breakers': 'Road Maintenance Department',
   'Traffic Obstruction': 'Traffic Operations Department',
+  'Stray Animals': 'Animal Control Department',
   'Trash / Illegal Dumping': 'Solid Waste Management Department',
   'Water Leak / Drainage': 'Water and Drainage Department',
   'Sewage / Sanitation': 'Sanitation Department',
@@ -56,6 +58,8 @@ export const AI_CATEGORY_MAP = {
   'Water & Utilities': ['Water Supply Issues', 'Water Leakage / Pipeline Damage', 'Flooding / Waterlogging'],
   'Electrical Issues': ['Power Outage', 'Streetlight Not Working', 'Exposed / Hanging Wires', 'Transformer Issues'],
   'Illegal Activities & Violations': ['Illegal Banners / Hoardings', 'Encroachments', 'Unauthorized Construction', 'Illegal Dumping'],
+  'Animal & Public Nuisance': ['Stray Animals'],
+  'General Civic Issues': ['Other'],
 };
 
 export const AI_CATEGORY_TO_CIVIX_CATEGORY = {
@@ -81,6 +85,8 @@ export const AI_CATEGORY_TO_CIVIX_CATEGORY = {
   'Illegal Activities & Violations::Encroachments': 'Encroachments',
   'Illegal Activities & Violations::Unauthorized Construction': 'Unauthorized Construction',
   'Illegal Activities & Violations::Illegal Dumping': 'Illegal Dumping',
+  'Animal & Public Nuisance::Stray Animals': 'Stray Animals',
+  'General Civic Issues::Other': 'Other',
 };
 
 export const REPORT_SOURCES = {

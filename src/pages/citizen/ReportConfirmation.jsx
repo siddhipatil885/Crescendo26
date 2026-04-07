@@ -1,25 +1,12 @@
 import React from 'react';
-import { Bell, CheckCircle2, MapPinned, Search, Ticket, Copy, Check } from 'lucide-react';
-import { enableIssueNotifications } from '../../utils/notifications';
+import { CheckCircle2, MapPinned, Search, Copy, Check } from 'lucide-react';
 
 export default function ReportConfirmation({ issue, onTrackIssue }) {
-  const [notificationState, setNotificationState] = React.useState('idle');
-  const [notificationError, setNotificationError] = React.useState('');
   const [copiedToken, setCopiedToken] = React.useState(false);
 
   if (!issue) {
     return null;
   }
-
-  const handleEnableNotifications = async () => {
-    setNotificationState('loading');
-    setNotificationError('');
-    const result = await enableIssueNotifications(issue.id);
-    setNotificationState(result.enabled ? 'enabled' : 'unavailable');
-    if (!result.enabled) {
-      setNotificationError(result.error || result.message || 'Notifications could not be enabled on this device.');
-    }
-  };
 
   const handleCopyToken = async () => {
     if (issue.claimToken) {
@@ -55,7 +42,7 @@ export default function ReportConfirmation({ issue, onTrackIssue }) {
           Complaint Registered
         </h1>
         <p className="text-light text-sm mt-2" style={{ lineHeight: '1.5' }}>
-          Your report has been saved successfully. You can track updates, upvote the issue, and get notified when its status changes.
+          Your report has been saved successfully.
         </p>
       </div>
 
@@ -100,15 +87,7 @@ export default function ReportConfirmation({ issue, onTrackIssue }) {
 
       <div style={{ backgroundColor: 'white', padding: '1.25rem', borderRadius: '16px', marginBottom: '1rem', border: '1px solid #E5E7EB' }}>
         <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-          Tracking Details
-        </div>
-
-        <div className="flex-row items-center gap-3 mb-3">
-          <Ticket size={18} color="#7C8FF0" />
-          <div>
-            <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>Issue ID</div>
-            <div style={{ fontSize: '1rem', fontWeight: '700', color: '#1F2937' }}>{issue.id}</div>
-          </div>
+          Complaint Details
         </div>
 
         <div className="flex-row items-center gap-3 mb-3">
@@ -126,46 +105,19 @@ export default function ReportConfirmation({ issue, onTrackIssue }) {
             <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#1F2937' }}>{issue.category}</div>
           </div>
         </div>
+
+        <div className="flex-row items-center gap-3">
+          <Search size={18} color="#3147B0" />
+          <div>
+            <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>Subcategory</div>
+            <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#1F2937' }}>{issue.subcategory || 'Not specified'}</div>
+          </div>
+        </div>
       </div>
 
       <button className="btn-primary" style={{ marginBottom: '0.75rem' }} onClick={() => onTrackIssue(issue.id)}>
         Track This Issue
       </button>
-
-      <button
-        type="button"
-        onClick={handleEnableNotifications}
-        disabled={notificationState === 'loading' || notificationState === 'enabled'}
-        style={{
-          backgroundColor: '#EEF2FF',
-          color: '#4C5FD5',
-          width: '100%',
-          padding: '0.95rem',
-          borderRadius: '12px',
-          fontSize: '0.9rem',
-          fontWeight: '600',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '0.5rem',
-          marginBottom: '1rem',
-          cursor: 'pointer',
-          border: 'none',
-        }}
-      >
-        <Bell size={18} />
-        {notificationState === 'loading'
-          ? 'Enabling notifications...'
-          : notificationState === 'enabled'
-            ? 'Notifications enabled'
-            : 'Enable status notifications'}
-      </button>
-
-      {notificationState === 'unavailable' && notificationError && (
-        <p style={{ fontSize: '0.8rem', color: '#991B1B', lineHeight: '1.4' }}>
-          {notificationError}
-        </p>
-      )}
     </div>
   );
 }
