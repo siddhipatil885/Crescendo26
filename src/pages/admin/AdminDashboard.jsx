@@ -119,7 +119,7 @@ export default function AdminDashboard({ onNavigate }) {
           return (
             <div key={issue.id} style={{ backgroundColor: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', border: '1px solid #E5E7EB' }}>
               <div style={{ height: '140px', position: 'relative' }}>
-                <img src={issue.beforeImageUrl || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=500&h=300&fit=crop'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={issue.category} />
+                <img src={issue.beforeImage || issue.beforeImageUrl || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=500&h=300&fit=crop'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={issue.category} />
                 {issue.status?.toLowerCase() === 'verified' && (
                   <div style={{ position: 'absolute', top: '12px', right: '12px', backgroundColor: '#047857', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.6rem', fontWeight: '700' }}>VERIFIED</div>
                 )}
@@ -133,7 +133,7 @@ export default function AdminDashboard({ onNavigate }) {
                 </div>
                 <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem', color: '#1F2937' }}>{issue.category || 'Uncategorized Report'}</h3>
                 <p style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '1rem', lineHeight: '1.5', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {issue.description || 'No description provided.'}
+                  {issue.description || issue.text || 'No description provided.'}
                 </p>
                 <div className="flex-row items-center gap-1 mb-4">
                   <MapPin size={12} color="#6B7280" />
