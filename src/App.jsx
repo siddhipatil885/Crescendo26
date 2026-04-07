@@ -8,10 +8,11 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [subView, setSubView] = useState(null); // Used to go "deeper" into e.g. 'details'
-  const [reportStep, setReportStep] = useState('capture'); // Tracks if we are capturing or analyzing
+  const [subView, setSubView] = useState(null);
+  const [reportStep, setReportStep] = useState('capture');
   const [draftImage, setDraftImage] = useState(null);
-  const [isAdminMode, setIsAdminMode] = useState(false); // Quick toggle for demo
+  const [selectedIssueId, setSelectedIssueId] = useState(null);
+  const [isAdminMode, setIsAdminMode] = useState(false);
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
@@ -21,14 +22,15 @@ function App() {
     }
   };
 
-  const handleNavigate = (viewId) => {
+  const handleNavigate = (viewId, issueId) => {
     setSubView(viewId);
+    if (issueId) setSelectedIssueId(issueId);
   };
 
   const renderContent = () => {
     // If viewing a detail page
     if (subView === 'details') {
-      return <IssueDetails />;
+      return <IssueDetails issueId={selectedIssueId} isAdmin={isAdminMode} />;
     }
 
     // Main Tab Routing
@@ -39,7 +41,7 @@ function App() {
           : <Home onNavigate={handleNavigate} />;
       case 'report':
         return reportStep === 'capture' 
-          ? <CaptureIssue onAnalyze={(imgUrl) => { setDraftImage(imgUrl); setReportStep('analyze'); }} />
+          ? <CaptureIssue onCapture={(imgUrl) => { setDraftImage(imgUrl); setReportStep('details'); }} />
           : <ReportIssue draftImage={draftImage} onSubmit={() => handleTabChange('dashboard')} />;
       case 'map':
         return (

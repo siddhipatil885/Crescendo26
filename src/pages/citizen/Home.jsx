@@ -1,7 +1,43 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MoreHorizontal, Clock, RefreshCw, CheckCircle2, MapPin, ListFilter } from 'lucide-react';
+import { subscribeToIssues } from '../../services/issues';
+import { timeAgo } from '../../utils/formatters';
+
+
+const badgeClass = (status) => {
+  switch (status?.toLowerCase()) {
+    case 'pending': return 'badge badge-pending';
+    case 'in_progress': case 'in progress': case 'review': return 'badge badge-review';
+    case 'resolved': case 'completed': case 'verified': return 'badge badge-resolved';
+    default: return 'badge badge-pending';
+  }
+};
 
 export default function Home({ onNavigate }) {
+  const [issues, setIssues] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = subscribeToIssues(
+      (data) => {
+        setIssues(data);
+        setLoading(false);
+      },
+      (err) => {
+        setError(err.message);
+        setLoading(false);
+      },
+      20
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  const pendingCount = useMemo(() => issues.filter(i => i.status?.toLowerCase() === 'pending').length, [issues]);
+  const inProgressCount = useMemo(() => issues.filter(i => ['in_progress', 'in progress', 'review'].includes(i.status?.toLowerCase())).length, [issues]);
+  const resolvedCount = useMemo(() => issues.filter(i => ['resolved', 'completed', 'verified'].includes(i.status?.toLowerCase())).length, [issues]);
+
   return (
     <div className="flex-col pb-6">
       {/* Header section */}
@@ -23,7 +59,7 @@ export default function Home({ onNavigate }) {
             <MoreHorizontal color="#B45309" size={20} />
             <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#B45309', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>STATUS</span>
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#B45309', marginBottom: '2px' }}>12</div>
+          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#B45309', marginBottom: '2px' }}>{String(pendingCount).padStart(2, '0')}</div>
           <div style={{ fontSize: '0.8rem', color: '#B45309' }}>Pending Issues</div>
         </div>
 
@@ -33,7 +69,7 @@ export default function Home({ onNavigate }) {
             <RefreshCw color="#1E3A8A" size={20} />
             <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#1E3A8A', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>IN PROGRESS</span>
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#1E3A8A', marginBottom: '2px' }}>08</div>
+          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#1E3A8A', marginBottom: '2px' }}>{String(inProgressCount).padStart(2, '0')}</div>
           <div style={{ fontSize: '0.8rem', color: '#1E3A8A' }}>Under Review</div>
         </div>
 
@@ -43,7 +79,7 @@ export default function Home({ onNavigate }) {
             <CheckCircle2 color="#047857" size={20} />
             <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#047857', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>COMPLETED</span>
           </div>
-          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#047857', marginBottom: '2px' }}>145</div>
+          <div style={{ fontSize: '2rem', fontWeight: '700', color: '#047857', marginBottom: '2px' }}>{String(resolvedCount).padStart(2, '0')}</div>
           <div style={{ fontSize: '0.8rem', color: '#047857' }}>Resolved This Year</div>
         </div>
       </div>
@@ -91,33 +127,28 @@ export default function Home({ onNavigate }) {
         </div>
 
         <div className="flex-col gap-4">
-          {/* Activity Item 1 */}
-          <div onClick={() => onNavigate('details')} style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1rem', cursor: 'pointer' }}>
-            <img src="https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=100&h=100&fit=crop" style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} alt="Pothole" />
-            <div className="flex-col justify-center flex-1">
-              <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '4px' }}>Cracked Sidewalk on 5th Ave</h3>
-              <p style={{ fontSize: '0.75rem', color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>Safety hazard reported near the school</p>
-              <div className="flex-row items-center gap-2 mt-2">
-                <span className="badge badge-pending">PENDING</span>
-                <span style={{ fontSize: '0.65rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={10} /> 2h ago</span>
+          {issues.length === 0 && !loading && (
+            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', color: '#6B7280', fontSize: '0.85rem' }}>No issues reported yet.</div>
+          )}
+          {issues.map((issue) => (
+            <div key={issue.id} onClick={() => onNavigate('details', issue.id)} role="button" tabIndex={0} style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1rem', cursor: 'pointer' }}>
+              {issue.beforeImageUrl ? (
+                <img src={issue.beforeImageUrl} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} alt={issue.category || 'Issue'} />
+              ) : (
+                <div style={{ width: '60px', height: '60px', borderRadius: '12px', backgroundColor: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <MapPin size={24} color="#7C8FF0" />
+                </div>
+              )}
+              <div className="flex-col justify-center flex-1">
+                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '4px' }}>{issue.category || 'Uncategorized'}</h3>
+                <p style={{ fontSize: '0.75rem', color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>{issue.description || 'No description'}</p>
+                <div className="flex-row items-center gap-2 mt-2">
+                  <span className={badgeClass(issue.status)}>{(issue.status || 'pending').toUpperCase()}</span>
+                  <span style={{ fontSize: '0.65rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={10} /> {timeAgo(issue.createdAt)}</span>
+                </div>
               </div>
             </div>
-          </div>
-
-          {/* Activity Item 2 */}
-          <div onClick={() => onNavigate('details')} role="button" tabIndex={0} style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1rem', cursor: 'pointer' }}>
-            <div style={{ width: '60px', height: '60px', borderRadius: '12px', backgroundColor: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-               <div style={{width: '20px', height: '30px', background: 'linear-gradient(to bottom, #FFE4B5, #e67e22)', borderRadius: '4px'}}></div>
-            </div>
-            <div className="flex-col justify-center flex-1">
-              <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '4px' }}>Streetlamp Flickering</h3>
-              <p style={{ fontSize: '0.75rem', color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>Unit #442 on Oak Street has...</p>
-              <div className="flex-row items-center gap-2 mt-2">
-                <span className="badge badge-review">UNDER REVIEW</span>
-                <span style={{ fontSize: '0.65rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}><Clock size={10} /> 5h ago</span>
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

@@ -1,30 +1,36 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Image as ImageIcon, UploadCloud, X } from 'lucide-react';
-import { uploadImage } from '../../services/storage';
 
-export default function CaptureIssue({ onAnalyze }) {
+export default function CaptureIssue({ onCapture }) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [loading, setLoading] = useState(false);
   
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
 
-  const handleFileChange = async (event) => {
+  // Cleanup object URL on unmount
+  useEffect(() => {
+    return () => {
+      if (selectedImage?.preview && selectedImage.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(selectedImage.preview);
+      }
+    };
+  }, [selectedImage]);
+
+  const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    setLoading(true);
-    try {
-      const uploadedUrl = await uploadImage(file);
-      setSelectedImage(uploadedUrl);
-    } catch (error) {
-      console.error(error);
-      alert('Failed to upload image. Please try again.');
-    } finally {
-      setLoading(false);
-      if (cameraInputRef.current) cameraInputRef.current.value = '';
-      if (galleryInputRef.current) galleryInputRef.current.value = '';
+    // Revoke old URL if it exists
+    if (selectedImage?.preview && selectedImage.preview.startsWith('blob:')) {
+      URL.revokeObjectURL(selectedImage.preview);
     }
+
+    const previewUrl = URL.createObjectURL(file);
+    setSelectedImage({ file, preview: previewUrl });
+    
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
   };
 
   const handleCameraCapture = () => cameraInputRef.current?.click();
@@ -39,7 +45,7 @@ export default function CaptureIssue({ onAnalyze }) {
         </h1>
         <p className="text-light text-sm mt-2" style={{ lineHeight: '1.4' }}>
           Help us improve your neighborhood.<br/>
-          Capture a photo and the AI will analyze it.
+          Capture a photo and provide report details.
         </p>
       </div>
 
@@ -86,7 +92,7 @@ export default function CaptureIssue({ onAnalyze }) {
             </div>
             <div className="flex-col items-center">
               <span style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1F2937' }}>
-                {loading ? 'Uploading...' : 'Take Photo'}
+                Take Photo
               </span>
               <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>Open device camera</span>
             </div>
@@ -126,12 +132,18 @@ export default function CaptureIssue({ onAnalyze }) {
         <div className="flex-col">
           <div style={{ position: 'relative', width: '100%', height: '240px', borderRadius: '20px', overflow: 'hidden', marginBottom: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
             <img 
-              src={selectedImage} 
+              src={selectedImage.preview} 
               alt="Selected Issue" 
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
             <button 
-              onClick={() => setSelectedImage(null)}
+              onClick={() => {
+                if (selectedImage?.preview && selectedImage.preview.startsWith('blob:')) {
+                  URL.revokeObjectURL(selectedImage.preview);
+                }
+                setSelectedImage(null);
+              }}
+              disabled={loading}
               style={{ position: 'absolute', top: '12px', right: '12px', backgroundColor: 'rgba(0,0,0,0.6)', color: 'white', padding: '6px', borderRadius: '50%' }}
             >
               <X size={18} />
@@ -139,12 +151,12 @@ export default function CaptureIssue({ onAnalyze }) {
           </div>
 
           <button 
-            onClick={() => onAnalyze(selectedImage)}
+            onClick={() => onCapture(selectedImage)}
             className="btn-primary" 
             style={{ backgroundColor: '#7C8FF0' }}
           >
             <UploadCloud size={18} />
-            Analyze with AI
+            Next Step
           </button>
         </div>
       )}
