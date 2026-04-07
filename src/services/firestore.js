@@ -26,6 +26,7 @@ export const useIssues = (filters = {}) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        setLoading(true);
         let q = collection(db, "issues");
         const constraints = [orderBy("upvotes", "desc")];
 
@@ -38,7 +39,13 @@ export const useIssues = (filters = {}) => {
         q = query(q, ...constraints);
 
         const unsub = onSnapshot(q, (snap) => {
-            setIssues(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+            setIssues(snap.docs.map((d) => {
+                const { claimToken, ...data } = d.data();
+                return { id: d.id, ...data };
+            }));
+            setLoading(false);
+        }, (err) => {
+            console.error("useIssues error:", err);
             setLoading(false);
         });
 
@@ -157,6 +164,7 @@ export const reopenIssue = async (issueId, reason) => {
         reopen_reason: reason,
         verified_by_citizen: false,
         verification_photo_url: null,
+        verified_at: null,
         updated_at: serverTimestamp(),
         timeline: arrayUnion({
             action: "Reopened by citizen",
@@ -186,7 +194,7 @@ export const getAnalytics = (issues) => {
     const inProgress = issues.filter((i) => i.status === "in_progress").length;
     const resolved = issues.filter((i) => i.status === "resolved").length;
     const verified = issues.filter((i) => i.verified_by_citizen).length;
-    const verificationRate = resolved > 0 ? ((verified / resolved) * 100).toFixed(1) : 0;
+    const verificationRate = resolved > 0 ? Number(((verified / resolved) * 100).toFixed(1)) : 0;
 
     const byCategory = issues.reduce((acc, issue) => {
         acc[issue.category] = (acc[issue.category] || 0) + 1;

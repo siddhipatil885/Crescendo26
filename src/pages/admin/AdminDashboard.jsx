@@ -3,8 +3,7 @@ import { MapPin, CheckCircle2, Clock, Loader2, LogOut } from 'lucide-react';
 import { subscribeToIssues, updateIssue } from '../../services/issues';
 import { timeAgo } from '../../utils/formatters';
 import { useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth } from '../../services/firebase';
+import { useAdminAuth } from '../auth/AuthFlow';
 
 const statusBadge = (status) => {
   const s = status?.toLowerCase();
@@ -19,6 +18,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
+  const { logout } = useAdminAuth();
 
   useEffect(() => {
     const unsubscribe = subscribeToIssues(
@@ -70,7 +70,7 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
+    await logout();
     navigate('/admin/login');
   };
 

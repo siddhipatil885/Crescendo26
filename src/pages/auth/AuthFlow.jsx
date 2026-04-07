@@ -32,7 +32,12 @@ export const useAdminAuth = () => {
     };
 
     const logout = async () => {
-        await signOut(auth);
+        try {
+            await signOut(auth);
+        } catch (err) {
+            console.error("Logout error:", err);
+            setError("Failed to sign out");
+        }
     };
 
     return { login, logout, error, loading };
@@ -48,7 +53,8 @@ export default function AuthFlow() {
     const navigate = useNavigate();
     const { login, error, loading } = useAdminAuth();
 
-    const handleLogin = () => {
+    const handleLogin = (e) => {
+        e?.preventDefault();
         login(email, password, () => navigate("/admin/dashboard"));
     };
 
@@ -77,7 +83,7 @@ export default function AuthFlow() {
                     CIVIX — Pune
                 </p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div>
                         <label style={{ color: '#9CA3AF', fontSize: '0.75rem', marginBottom: '4px', display: 'block' }}>
                             Email
@@ -87,6 +93,7 @@ export default function AuthFlow() {
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="admin@pune.gov.in"
+                            autoComplete="email"
                             style={{
                                 width: '100%',
                                 backgroundColor: '#1F2937',
@@ -109,8 +116,8 @@ export default function AuthFlow() {
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                             placeholder="••••••••"
+                            autoComplete="current-password"
                             style={{
                                 width: '100%',
                                 backgroundColor: '#1F2937',
@@ -130,7 +137,7 @@ export default function AuthFlow() {
                     )}
 
                     <button
-                        onClick={handleLogin}
+                        type="submit"
                         disabled={loading}
                         style={{
                             width: '100%',
@@ -148,7 +155,7 @@ export default function AuthFlow() {
                     >
                         {loading ? "Signing in..." : "Sign In"}
                     </button>
-                </div>
+                </form>
 
                 <p style={{ color: '#4B5563', fontSize: '0.75rem', textAlign: 'center', marginTop: '1.5rem' }}>
                     Citizens don't need to log in — just open the app.

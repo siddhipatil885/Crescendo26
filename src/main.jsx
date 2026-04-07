@@ -12,8 +12,21 @@ function ProtectedRoute({ children }) {
   const [user, setUser] = useState(undefined)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u)
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        try {
+          const tokenResult = await u.getIdTokenResult()
+          if (tokenResult.claims?.admin) {
+            setUser(u)
+          } else {
+            setUser(null)
+          }
+        } catch (e) {
+          setUser(null)
+        }
+      } else {
+        setUser(null)
+      }
     })
     return () => unsubscribe()
   }, [])
