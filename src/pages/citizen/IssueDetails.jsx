@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, UserCheck, ShieldCheck, MapPin, Loader2, Camera } from 'lucide-react';
 import { subscribeToIssue, updateIssue } from '../../services/issues';
-import { uploadToCloudinary } from '../../services/storage';
+import { uploadImage } from '../../services/storage';
+import { computeEscalationStatus, formatCountdown, getIssueImage } from '../../utils/escalation';
 
 export default function IssueDetails({ issueId, isAdmin }) {
   const [issue, setIssue] = useState(null);
@@ -9,6 +10,8 @@ export default function IssueDetails({ issueId, isAdmin }) {
   const [error, setError] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+  const [showRTI, setShowRTI] = useState(false);
   const verifyInputRef = useRef(null);
 
   const IN_PROGRESS_STATUSES = ['in_progress', 'in progress', 'review', 'resolved', 'completed', 'verified'];
@@ -35,6 +38,11 @@ export default function IssueDetails({ issueId, isAdmin }) {
 
     return () => unsubscribe();
   }, [issueId]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleShareResolution = () => {
     if (navigator.share) {
@@ -65,6 +73,8 @@ export default function IssueDetails({ issueId, isAdmin }) {
     switch (status?.toLowerCase()) {
       case 'pending': return 'badge badge-pending';
       case 'in_progress': case 'in progress': case 'review': return 'badge badge-review';
+      case 'rti generated': return 'badge badge-review';
+      case 'escalated to mla': return 'badge badge-pending';
       case 'resolved': case 'completed': return 'badge badge-resolved';
       case 'verified': return 'badge badge-resolved';
       default: return 'badge badge-pending';
@@ -79,7 +89,7 @@ export default function IssueDetails({ issueId, isAdmin }) {
     try {
       const afterImageUrl = await uploadToCloudinary(file);
       await updateIssue(issueId, {
-        afterImageUrl,
+        afterImage: afterImageUrl,
         status: 'verified'
       });
       // onSnapshot handles the refresh
@@ -110,21 +120,32 @@ export default function IssueDetails({ issueId, isAdmin }) {
   }
 
   const currentStatus = issue.status?.toLowerCase();
+  const escalationStatus = computeEscalationStatus(issue, now);
+  const countdown = formatCountdown(issue, now);
+  const beforeImage = getIssueImage(issue, 'before');
+  const afterImage = getIssueImage(issue, 'after');
+  const rtiText = generateRTI(issue, escalationStatus);
+  const escalationStages = ['Pending', 'In Progress', 'RTI Generated', 'Escalated to MLA', 'Resolved'];
+  const stageIndex = Math.max(0, escalationStages.findIndex((stage) => stage.toLowerCase() === escalationStatus.toLowerCase()));
 
   return (
     <div className="flex-col pb-6">
       {/* Header */}
       <div className="mt-4 mb-4">
         <div className="flex-row gap-2 mb-3">
-          <span className={badgeStyle(issue.status)}>{(issue.status || 'PENDING').toUpperCase()}</span>
+          <span className={badgeStyle(escalationStatus)}>{escalationStatus.toUpperCase()}</span>
           <span className="badge" style={{ backgroundColor: '#EEF2FF', color: '#7C8FF0' }}>{issue.category || 'UNCATEGORIZED'}</span>
         </div>
         <h1 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#1F2937', marginBottom: '0.5rem', lineHeight: '1.2' }}>
           {issue.category || 'Issue Details'}
         </h1>
         <p className="text-light text-sm" style={{ lineHeight: '1.5' }}>
-          {issue.description || 'No description provided.'}
+          {issue.description || issue.text || 'No description provided.'}
         </p>
+        <div className="flex-row items-center gap-2 mt-3" style={{ fontSize: '0.75rem', color: '#6B7280' }}>
+          <ShieldCheck size={14} color="#7C8FF0" />
+          <span>Deadline: {countdown}</span>
+        </div>
       </div>
 
       {/* Admin Controls */}
@@ -186,32 +207,65 @@ export default function IssueDetails({ issueId, isAdmin }) {
         </div>
       </div>
 
+      {/* Escalation Stages */}
+      <div style={{ backgroundColor: 'white', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem', border: '1px solid #E5E7EB' }}>
+        <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>ESCALATION STAGES</div>
+        <div className="flex-col gap-2">
+          {escalationStages.map((stage, idx) => {
+            const isActive = idx <= stageIndex;
+            return (
+              <div key={stage} className="flex-row items-center gap-2">
+                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: isActive ? '#1D4ED8' : '#D1D5DB' }} />
+                <span style={{ fontSize: '0.8rem', color: isActive ? '#111827' : '#9CA3AF', fontWeight: isActive ? '600' : '500' }}>{stage}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Before/After Images */}
       <div className="mb-6 flex-col gap-4">
         {/* Before */}
-        {issue.beforeImageUrl && (
+        {beforeImage && (
           <div style={{ backgroundColor: '#EEF2F6', borderRadius: '16px', overflow: 'hidden' }}>
             <div style={{ position: 'relative', height: '160px' }}>
-              <img src={issue.beforeImageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Before" />
+              <img src={beforeImage} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Before" />
               <div style={{ position: 'absolute', top: '12px', left: '12px', backgroundColor: '#991B1B', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase' }}>BEFORE</div>
             </div>
             <div style={{ padding: '1rem' }}>
               <div style={{ fontWeight: '600', fontSize: '0.9rem', marginBottom: '4px' }}>Original Issue</div>
-              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>{issue.description || 'Issue reported by citizen.'}</div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>{issue.description || issue.text || 'Issue reported by citizen.'}</div>
             </div>
           </div>
         )}
 
         {/* After */}
-        {issue.afterImageUrl && (
+        {afterImage && (
           <div style={{ backgroundColor: '#EEF2F6', borderRadius: '16px', overflow: 'hidden' }}>
             <div style={{ position: 'relative', height: '160px' }}>
-              <img src={issue.afterImageUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="After" />
+              <img src={afterImage} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="After" />
               <div style={{ position: 'absolute', top: '12px', left: '12px', backgroundColor: '#047857', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase' }}>AFTER</div>
             </div>
             <div style={{ padding: '1rem' }}>
               <div style={{ fontWeight: '600', fontSize: '0.9rem', marginBottom: '4px' }}>Resolved State</div>
               <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>Issue has been resolved. {currentStatus === 'verified' && "The resolution has been verified by the community."}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Side-by-side comparison */}
+        {beforeImage && afterImage && (
+          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '1rem', border: '1px solid #E5E7EB' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#4B5563', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>BEFORE / AFTER</div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ flex: 1 }}>
+                <img src={beforeImage} alt="Before comparison" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '12px' }} />
+                <div style={{ marginTop: '6px', fontSize: '0.7rem', color: '#991B1B', fontWeight: '700' }}>BEFORE</div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <img src={afterImage} alt="After comparison" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '12px' }} />
+                <div style={{ marginTop: '6px', fontSize: '0.7rem', color: '#047857', fontWeight: '700' }}>AFTER</div>
+              </div>
             </div>
           </div>
         )}
@@ -223,7 +277,11 @@ export default function IssueDetails({ issueId, isAdmin }) {
         
         <div className="flex-row justify-between mb-3">
           <span style={{ fontSize: '0.8rem', color: '#4B5563' }}>Status</span>
-          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1E3A8A' }}>{(issue.status || 'pending').toUpperCase()}</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1E3A8A' }}>{escalationStatus.toUpperCase()}</span>
+        </div>
+        <div className="flex-row justify-between mb-3">
+          <span style={{ fontSize: '0.8rem', color: '#4B5563' }}>Countdown</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1E3A8A' }}>{countdown}</span>
         </div>
         <div className="flex-row justify-between mb-3">
           <span style={{ fontSize: '0.8rem', color: '#4B5563' }}>Category</span>
@@ -241,6 +299,48 @@ export default function IssueDetails({ issueId, isAdmin }) {
           Share Issue
         </button>
       </div>
+
+      {/* RTI Generator */}
+      <div style={{ backgroundColor: 'white', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem', border: '1px solid #E5E7EB' }}>
+        <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>RTI NOTICE</div>
+        <p style={{ fontSize: '0.8rem', color: '#4B5563', marginBottom: '0.75rem' }}>Generate a ready-to-send RTI notice for this issue.</p>
+        <button
+          onClick={() => setShowRTI((prev) => !prev)}
+          style={{ backgroundColor: '#111827', color: 'white', width: '100%', padding: '0.75rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600', marginBottom: showRTI ? '0.75rem' : 0 }}
+        >
+          {showRTI ? 'Hide RTI Text' : 'Generate RTI Notice'}
+        </button>
+        {showRTI && (
+          <div>
+            <textarea
+              readOnly
+              value={rtiText}
+              rows={7}
+              style={{ width: '100%', borderRadius: '12px', border: '1px solid #E5E7EB', padding: '0.75rem', fontSize: '0.8rem', color: '#374151', backgroundColor: '#F9FAFB' }}
+            />
+            <button
+              onClick={() => navigator.clipboard?.writeText(rtiText)}
+              style={{ marginTop: '0.6rem', backgroundColor: '#F3F4F6', color: '#111827', width: '100%', padding: '0.7rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600', border: '1px solid #E5E7EB' }}
+            >
+              Copy RTI Text
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Twitter Escalation */}
+      {escalationStatus.toLowerCase() === 'escalated to mla' && (
+        <div style={{ backgroundColor: '#EFF6FF', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem', border: '1px solid #DBEAFE' }}>
+          <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#1D4ED8', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>ESCALATION</div>
+          <p style={{ fontSize: '0.8rem', color: '#1E40AF', marginBottom: '0.75rem' }}>This issue has crossed the 7-day window. Notify your MLA publicly.</p>
+          <button
+            onClick={() => window.open(buildTweetUrl(issue, escalationStatus), '_blank', 'noopener')}
+            style={{ backgroundColor: '#1D4ED8', color: 'white', width: '100%', padding: '0.75rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '600' }}
+          >
+            Notify MLA on Twitter
+          </button>
+        </div>
+      )}
 
       {/* Verify Resolution */}
       {!isAdmin && currentStatus === 'resolved' && (
@@ -283,6 +383,31 @@ function formatDate(timestamp) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function generateRTI(issue, escalationStatus) {
+  const createdAt = issue?.createdAt?.toDate ? issue.createdAt.toDate() : new Date(issue?.createdAt || Date.now());
+  const createdDate = createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  return [
+    'RTI Notice:',
+    `Issue: ${issue?.description || issue?.text || 'N/A'}`,
+    `Category: ${issue?.category || 'N/A'}`,
+    `Department: ${issue?.department || 'N/A'}`,
+    `Date: ${createdDate}`,
+    `Status: ${escalationStatus}`,
+  ].join('\n');
+}
+
+function buildTweetUrl(issue, escalationStatus) {
+  const text = [
+    'Escalation Alert:',
+    issue?.category ? `${issue.category} issue` : 'Civic issue',
+    issue?.description || issue?.text ? `(${issue.description || issue.text})` : '',
+    `Status: ${escalationStatus}.`,
+    'Please resolve urgently.',
+  ].join(' ');
+  const url = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`;
+  return url;
+}
+
 function TimelineItem({ icon, title, date, active, bg }) {
   return (
     <div className="flex-row items-center gap-4" style={{ zIndex: 2 }}>
@@ -296,4 +421,3 @@ function TimelineItem({ icon, title, date, active, bg }) {
     </div>
   );
 }
-

@@ -9,7 +9,8 @@ export default function IssueMarker({ issue }) {
     return null;
   }
 
-  const { id, lat, lng, category, description, status, beforeImageUrl } = issue;
+  const { id, lat, lng, category, description, text, status, beforeImage, beforeImageUrl } = issue;
+  const previewImage = beforeImage || beforeImageUrl || null;
   const statusDisplay = status && typeof status === 'string'
     ? status
         .replace(/_/g, ' ')
@@ -54,7 +55,7 @@ export default function IssueMarker({ issue }) {
               color: '#1f2937',
             }}
           >
-            {description || 'No description'}
+            {description || text || 'No description'}
           </p>
 
           <div style={{ marginTop: '12px', marginBottom: '12px' }}>
@@ -78,10 +79,10 @@ export default function IssueMarker({ issue }) {
             </span>
           </div>
 
-          {beforeImageUrl && !isImageBroken && (
+          {previewImage && !isImageBroken && (
             <div style={{ marginTop: '12px' }}>
               <img
-                src={beforeImageUrl}
+                src={previewImage}
                 alt="Issue"
                 loading="lazy"
                 onError={handleImageError}
