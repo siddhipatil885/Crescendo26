@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "./firebase";
 import { uploadToCloudinary } from "./storage";
+import { saveToken } from "../utils/token";
 
 // ─────────────────────────────────────────────
 // REAL-TIME ISSUES HOOK (used in admin + public map)
@@ -85,8 +86,7 @@ export const submitReport = async ({ photo, category, aiDescription, location, n
     });
 
     // Save token to localStorage so reporter can verify later
-    const myReports = JSON.parse(localStorage.getItem("myReports") || "[]");
-    localStorage.setItem("myReports", JSON.stringify([...myReports, claimToken]));
+    saveToken(claimToken);
 };
 
 // ─────────────────────────────────────────────

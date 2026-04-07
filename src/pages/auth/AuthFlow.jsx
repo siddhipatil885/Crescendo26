@@ -15,8 +15,15 @@ export const useAdminAuth = () => {
         setLoading(true);
         setError("");
         try {
-            await signInWithEmailAndPassword(auth, email, password);
-            onSuccess?.();
+            const userCredential = await signInWithEmailAndPassword(auth, email, password);
+            const tokenResult = await userCredential.user.getIdTokenResult();
+
+            if (tokenResult.claims.admin) {
+                onSuccess?.();
+            } else {
+                await signOut(auth);
+                setError("Insufficient permissions. Admin access required.");
+            }
         } catch (err) {
             setError("Invalid email or password");
         } finally {
