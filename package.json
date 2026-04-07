@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/siddhipatil885/Crescendo26#readme",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "firebase": "^12.11.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"

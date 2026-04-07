@@ -74,12 +74,16 @@ typings/
 
 # dotenv environment variable files
 .env
+ai-server/.env
 .env.test
 .env.production
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Firebase service account key (keep private)
+ai-server/serviceAccountKey.json
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
