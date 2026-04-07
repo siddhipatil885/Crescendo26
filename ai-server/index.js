@@ -1039,7 +1039,7 @@ const analyzeImageLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.post("/analyze-image", authenticateToken, analyzeImageLimiter, async (req, res) => {
+app.post("/analyze-image", analyzeImageLimiter, async (req, res) => {
   const imageBase64 = req.body?.imageBase64;
   const mimeType = req.body?.mimeType;
 
