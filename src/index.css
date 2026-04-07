@@ -94,6 +94,11 @@ button {
   padding: 0 1.5rem 6rem 1.5rem; /* Bottom padding for nav bar */
 }
 
+.content-area-map {
+  padding: 0 0 6rem 0;
+  overflow: hidden;
+}
+
 /* Bottom Navigation */
 .bottom-nav {
   position: absolute;

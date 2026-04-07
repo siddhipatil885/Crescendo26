@@ -5,6 +5,7 @@ import CaptureIssue from './pages/citizen/CaptureIssue';
 import ReportIssue from './pages/citizen/ReportIssue';
 import IssueDetails from './pages/citizen/IssueDetails';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import Map from './pages/citizen/Map';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -23,6 +24,12 @@ function App() {
   };
 
   const handleNavigate = (viewId, issueId) => {
+    if (viewId === 'map') {
+      setActiveTab('map');
+      setSubView(null);
+      return;
+    }
+
     setSubView(viewId);
     if (issueId) setSelectedIssueId(issueId);
   };
@@ -44,17 +51,12 @@ function App() {
           ? <CaptureIssue onCapture={(imgUrl) => { setDraftImage(imgUrl); setReportStep('details'); }} />
           : <ReportIssue draftImage={draftImage} onSubmit={() => handleTabChange('dashboard')} />;
       case 'map':
-        return (
-          <div className="flex-col items-center justify-center" style={{ height: '70vh', color: '#6B7280' }}>
-            <h2 style={{ fontSize: '1.2rem', marginBottom: '8px' }}>Map View</h2>
-            <p>Interactive Map Component goes here.</p>
-          </div>
-        );
+        return <Map />;
       case 'profile':
         return (
           <div className="flex-col items-center justify-center" style={{ height: '70vh' }}>
             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=EEF2FF" style={{ width: 100, height: 100, borderRadius: '50%', marginBottom: '1rem' }} />
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '2rem' }}>Civic Guardian</h2>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '2rem' }}>Community Profile</h2>
             
             {import.meta.env.DEV && (
               <>
