@@ -573,14 +573,14 @@ function buildTemplateDescription(category, subcategory, labels = []) {
 
 function buildDescription(text, category, subcategory, labelHint = "") {
   const cleanedText = cleanDescription(text);
-  const labelList = sanitizeLabelList(labelHint || text);
   const cropped = cleanedText.split(" ").filter(Boolean).slice(0, 40).join(" ");
 
-  if (countWords(cropped) >= 8 && !looksLikeLabelList(cropped) && !isWeakDescription(cropped)) {
+  if (countWords(cropped) >= 4 && !looksLikeLabelList(cropped) && !isWeakDescription(cropped)) {
     return ensureSentence(cropped);
   }
 
-  return buildTemplateDescription(category, subcategory, labelList);
+  // The user explicitly requested: "if the ai isnt able to do it then just dont enter anything"
+  return "";
 }
 
 function normalizeImageAnalysis(category, subcategory, description, confidence, issueType, severity, labelHint = "") {
@@ -621,14 +621,9 @@ function normalizeCivicIssueAnalysis(payload, labels = [], confidence = 0.72) {
 }
 
 function classifyCaption(caption) {
-  const text = normalizeSpaces(caption).toLowerCase();
-  const matchedRule = IMAGE_KEYWORD_RULES.find((rule) => rule.keywords.some((keyword) => text.includes(keyword)));
-
-  if (!matchedRule) {
-    return FINAL_FALLBACK_ANALYSIS;
-  }
-
-  return normalizeImageAnalysis(matchedRule.category, matchedRule.subcategory, caption, 0.65);
+  // We matched keywords previously, but keyword-matching on ImageNet classes leads to extremely inaccurate civic outputs.
+  // The user requested no hardcoded text: "if the ai isnt able to do it then just dont enter anything"
+  return FINAL_FALLBACK_ANALYSIS;
 }
 
 function withTimeout(promise, ms, message) {
