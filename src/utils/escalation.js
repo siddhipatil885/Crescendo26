@@ -1,6 +1,6 @@
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
+import { isResolvedStatus } from './constants';
 
-export const RESOLVED_STATUSES = ['resolved', 'completed', 'verified'];
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export function toDate(value) {
   if (!value) return null;
@@ -25,7 +25,7 @@ export function getDeadline(issue) {
 
 export function computeEscalationStatus(issue, now = new Date()) {
   const currentStatus = issue?.status?.toString().toLowerCase();
-  if (RESOLVED_STATUSES.includes(currentStatus)) {
+  if (isResolvedStatus(currentStatus)) {
     return 'Resolved';
   }
 
@@ -75,4 +75,3 @@ export function getIssueImage(issue, type) {
   if (type === 'after') return issue.afterImage || issue.afterImageUrl || null;
   return null;
 }
-

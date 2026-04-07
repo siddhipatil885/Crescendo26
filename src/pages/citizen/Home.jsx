@@ -148,35 +148,61 @@ export default function Home({ onNavigate }) {
           <ListFilter size={18} color="#6B7280" />
         </div>
 
+        {error && (
+          <div style={{ backgroundColor: '#fee2e2', padding: '1rem', borderRadius: '16px', color: '#981b1b', marginBottom: '1rem' }}>
+            {error}
+          </div>
+        )}
+
         <div className="flex-col gap-4">
-          {issues.length === 0 && !loading && (
+          {loading && (
+            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', color: '#6B7280', fontSize: '0.85rem' }}>Loading recent issues...</div>
+          )}
+
+          {!loading && issues.length === 0 && (
             <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', color: '#6B7280', fontSize: '0.85rem' }}>No issues reported yet.</div>
           )}
+
           {issues.map((issue) => {
             const computedStatus = computeEscalationStatus(issue, now);
             const countdown = formatCountdown(issue, now);
             const previewImage = getIssueImage(issue, 'before');
+            const handleNavigateToDetails = () => onNavigate('details', issue.id);
+            const handleKeyDown = (event) => {
+              if (event.key === 'Enter') {
+                handleNavigateToDetails();
+              }
+
+              if (event.key === ' ') {
+                event.preventDefault();
+                handleNavigateToDetails();
+              }
+            };
+
             return (
-            <div key={issue.id} onClick={() => onNavigate('details', issue.id)} role="button" tabIndex={0} style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1rem', cursor: 'pointer' }}>
-              {previewImage ? (
-                <img src={previewImage} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} alt={issue.category || 'Issue'} />
-              ) : (
-                <div style={{ width: '60px', height: '60px', borderRadius: '12px', backgroundColor: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <MapPin size={24} color="#7C8FF0" />
-                </div>
-              )}
-              <div className="flex-col justify-center flex-1">
-                <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '4px' }}>{issue.category || 'Uncategorized'}</h3>
-                <p style={{ fontSize: '0.75rem', color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>{issue.description || issue.text || 'No description'}</p>
-                <div className="flex-row items-center gap-2 mt-2">
-                  <span className={badgeClass(computedStatus)}>{computedStatus.toUpperCase()}</span>
-                  <span style={{ fontSize: '0.65rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Clock size={10} /> {countdown}
-                  </span>
+              <div key={issue.id} onClick={handleNavigateToDetails} onKeyDown={handleKeyDown} role="button" tabIndex={0} style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1rem', cursor: 'pointer' }}>
+                {previewImage ? (
+                  <img src={previewImage} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} alt={issue.category || 'Issue'} />
+                ) : (
+                  <div style={{ width: '60px', height: '60px', borderRadius: '12px', backgroundColor: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <MapPin size={24} color="#7C8FF0" />
+                  </div>
+                )}
+                <div className="flex-col justify-center flex-1">
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '4px' }}>{issue.category || 'Uncategorized'}</h3>
+                  <p style={{ fontSize: '0.75rem', color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
+                    {issue.description || issue.text || 'No description'}
+                  </p>
+                  <div className="flex-row items-center gap-2 mt-2">
+                    <span className={badgeClass(computedStatus)}>{computedStatus.toUpperCase()}</span>
+                    <span style={{ fontSize: '0.65rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <Clock size={10} /> {countdown}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )})}
+            );
+          })}
         </div>
       </div>
     </div>
