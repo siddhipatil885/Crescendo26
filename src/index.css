@@ -220,3 +220,16 @@ button {
 .rounded-xl { border-radius: 12px; }
 .rounded-2xl { border-radius: 16px; }
 .shadow-sm { box-shadow: var(--shadow-sm); }
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}

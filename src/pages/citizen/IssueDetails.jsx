@@ -87,7 +87,7 @@ export default function IssueDetails({ issueId, isAdmin }) {
 
     setIsVerifying(true);
     try {
-      const afterImageUrl = await uploadImage(file);
+      const afterImageUrl = await uploadToCloudinary(file);
       await updateIssue(issueId, {
         afterImage: afterImageUrl,
         status: 'verified'
