@@ -62,25 +62,51 @@ export async function reverseGeocode(lat, lng) {
     throw new Error('Valid coordinates are required for reverse geocoding');
   }
 
-  const response = await fetch(
-    `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`,
-    {
+  const timeoutMs = Number(import.meta.env.VITE_NOMINATIM_TIMEOUT_MS) || 5000;
+  const appName = import.meta.env.VITE_APP_NAME || 'CIVIX';
+  const contactEmail = import.meta.env.VITE_CONTACT_EMAIL || '';
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const params = new URLSearchParams({
+      format: 'jsonv2',
+      lat: String(lat),
+      lon: String(lng),
+      zoom: '18',
+      addressdetails: '1',
+      ...(contactEmail ? { email: contactEmail } : {}),
+    });
+
+    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?${params.toString()}`, {
+      signal: controller.signal,
       headers: {
         Accept: 'application/json',
+        'X-App-Name': appName,
       },
+      // Browser fetch forbids setting a custom User-Agent/Referer header directly.
+      referrerPolicy: 'origin',
+    });
+
+    if (!response.ok) {
+      throw new Error('Unable to fetch address details');
     }
-  );
 
-  if (!response.ok) {
-    throw new Error('Unable to fetch address details');
+    const data = await response.json();
+    const address = data.address || {};
+
+    return {
+      displayName: data.display_name || '',
+      neighbourhood: pickNeighbourhood(address),
+      address,
+    };
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error(`Reverse geocoding timed out after ${timeoutMs}ms`);
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
   }
-
-  const data = await response.json();
-  const address = data.address || {};
-
-  return {
-    displayName: data.display_name || '',
-    neighbourhood: pickNeighbourhood(address),
-    address,
-  };
 }

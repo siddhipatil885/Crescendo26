@@ -90,10 +90,60 @@ export const REPORT_SOURCES = {
 
 export const ISSUE_STATUS = {
   OPEN: 'open',
+  PENDING: 'pending',
   IN_PROGRESS: 'in_progress',
+  IN_PROGRESS_ALIAS: 'in progress',
+  REVIEW: 'review',
   RESOLVED: 'resolved',
+  COMPLETED: 'completed',
   VERIFIED: 'verified',
 };
+
+const STATUS_NORMALIZATION_MAP = {
+  [ISSUE_STATUS.OPEN]: ISSUE_STATUS.OPEN,
+  [ISSUE_STATUS.PENDING]: ISSUE_STATUS.PENDING,
+  [ISSUE_STATUS.IN_PROGRESS]: ISSUE_STATUS.IN_PROGRESS,
+  [ISSUE_STATUS.IN_PROGRESS_ALIAS]: ISSUE_STATUS.IN_PROGRESS,
+  [ISSUE_STATUS.REVIEW]: ISSUE_STATUS.REVIEW,
+  [ISSUE_STATUS.RESOLVED]: ISSUE_STATUS.RESOLVED,
+  [ISSUE_STATUS.COMPLETED]: ISSUE_STATUS.COMPLETED,
+  [ISSUE_STATUS.VERIFIED]: ISSUE_STATUS.VERIFIED,
+};
+
+export const PENDING_ISSUE_STATUSES = [ISSUE_STATUS.PENDING, ISSUE_STATUS.OPEN];
+export const ACTIVE_ISSUE_STATUSES = [
+  ISSUE_STATUS.IN_PROGRESS,
+  ISSUE_STATUS.IN_PROGRESS_ALIAS,
+  ISSUE_STATUS.REVIEW,
+];
+export const RESOLVED_ISSUE_STATUSES = [
+  ISSUE_STATUS.RESOLVED,
+  ISSUE_STATUS.COMPLETED,
+  ISSUE_STATUS.VERIFIED,
+];
+
+export function normalizeIssueStatus(status) {
+  const normalized = String(status || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return STATUS_NORMALIZATION_MAP[normalized] || normalized;
+}
+
+export function statusEquals(status, expectedStatus) {
+  return normalizeIssueStatus(status) === normalizeIssueStatus(expectedStatus);
+}
+
+export function isPendingStatus(status) {
+  return PENDING_ISSUE_STATUSES.includes(normalizeIssueStatus(status));
+}
+
+export function isInProgressStatus(status) {
+  const normalized = normalizeIssueStatus(status);
+  return ACTIVE_ISSUE_STATUSES.some((candidate) => normalizeIssueStatus(candidate) === normalized);
+}
+
+export function isResolvedStatus(status) {
+  const normalized = normalizeIssueStatus(status);
+  return RESOLVED_ISSUE_STATUSES.some((candidate) => normalizeIssueStatus(candidate) === normalized);
+}
 
 export function getDepartmentForCategory(category) {
   return CATEGORY_TO_DEPARTMENT[category] || CATEGORY_TO_DEPARTMENT.Other;

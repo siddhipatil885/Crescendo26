@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { AI_CATEGORY_MAP, getCivixCategoryFromAiClassification, ISSUE_CATEGORIES } from '../utils/constants';
+import { AI_CATEGORY_MAP, getCivixCategoryFromAiClassification } from '../utils/constants';
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
@@ -25,244 +25,46 @@ function safeParseJson(text) {
   }
 }
 
-function extractJsonObject(text) {
-  const cleanedText = String(text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-  const match = cleanedText.match(/\{[\s\S]*\}/);
-  return match ? match[0] : cleanedText;
-}
-
-function buildFallbackAnalysis(context = {}) {
-  return {
-    category: 'Roads & Infrastructure',
-    subcategory: 'Roads & Potholes',
-    description: 'Visible road surface damage appears to create a safety risk for vehicles and may lead to tyre damage, unstable movement, or accidents if the damaged section is not inspected and repaired promptly by the responsible civic department.',
-    confidence: 0.35,
-    civixCategory: 'Road Damage / Pothole',
-    issue_category: 'Roads & Infrastructure',
-    issue_subcategory: 'Roads & Potholes',
-    status: 'fallback',
-  };
-}
-
-/**
- * STRICT CATEGORY MAPPING
- * Maps detected keywords to exact Civix categories following user requirements
- */
-const STRICT_CATEGORY_RULES = [
-  // Roads & Infrastructure
-  { matches: ['pothole', 'crater', 'broken road', 'damaged road', 'road crack', 'hole'], category: 'Roads & Infrastructure', subcategory: 'Roads & Potholes', confidence: 0.97 },
-  { matches: ['broken sidewalk', 'damaged sidewalk', 'broken pavement', 'damaged pavement', 'broken footpath'], category: 'Roads & Infrastructure', subcategory: 'Footpaths & Sidewalks', confidence: 0.91 },
-  { matches: ['traffic signal', 'traffic light', 'traffic sign'], category: 'Roads & Infrastructure', subcategory: 'Traffic Signals & Signs', confidence: 0.94 },
-  { matches: ['speed breaker', 'road markings', 'lane markings'], category: 'Roads & Infrastructure', subcategory: 'Road Markings & Speed Breakers', confidence: 0.90 },
-  { matches: ['traffic obstruction', 'blocked road', 'obstruction'], category: 'Roads & Infrastructure', subcategory: 'Traffic Obstruction', confidence: 0.88 },
-  
-  // Sanitation & Public Health
-  { matches: ['garbage', 'waste', 'trash', 'dumping', 'litter'], category: 'Sanitation & Public Health', subcategory: 'Garbage & Waste', confidence: 0.95 },
-  { matches: ['drainage', 'sewage', 'water clogging', 'water logging', 'blocked drain'], category: 'Sanitation & Public Health', subcategory: 'Drainage & Sewage', confidence: 0.96 },
-  { matches: ['public toilet', 'toilet damage'], category: 'Sanitation & Public Health', subcategory: 'Public Toilets', confidence: 0.90 },
-  { matches: ['dead animal', 'animal carcass'], category: 'Sanitation & Public Health', subcategory: 'Dead Animals', confidence: 0.93 },
-  { matches: ['mosquito', 'rat', 'pest', 'infestation'], category: 'Sanitation & Public Health', subcategory: 'Pest Infestation', confidence: 0.90 },
-  { matches: ['manhole', 'open manhole', 'safety hazard'], category: 'Sanitation & Public Health', subcategory: 'Open Manholes / Safety Hazards', confidence: 0.92 },
-  
-  // Water & Utilities
-  { matches: ['water supply', 'dry tap', 'no water'], category: 'Water & Utilities', subcategory: 'Water Supply Issues', confidence: 0.90 },
-  { matches: ['water leak', 'leaking pipe', 'pipeline damage'], category: 'Water & Utilities', subcategory: 'Water Leakage / Pipeline Damage', confidence: 0.93 },
-  { matches: ['flooding', 'water accumulation', 'waterlogging'], category: 'Water & Utilities', subcategory: 'Flooding / Waterlogging', confidence: 0.95 },
-  
-  // Electrical Issues
-  { matches: ['power outage', 'power cut', 'no electricity'], category: 'Electrical Issues', subcategory: 'Power Outage', confidence: 0.90 },
-  { matches: ['streetlight', 'broken light', 'light not working'], category: 'Electrical Issues', subcategory: 'Streetlight Not Working', confidence: 0.95 },
-  { matches: ['exposed wire', 'hanging wire', 'wire damage'], category: 'Electrical Issues', subcategory: 'Exposed / Hanging Wires', confidence: 0.94 },
-  { matches: ['transformer', 'electrical equipment'], category: 'Electrical Issues', subcategory: 'Transformer Issues', confidence: 0.88 },
-  
-  // Illegal Activities & Violations
-  { matches: ['illegal banner', 'banner', 'hoarding'], category: 'Illegal Activities & Violations', subcategory: 'Illegal Banners / Hoardings', confidence: 0.92 },
-  { matches: ['encroachment', 'blocked footpath', 'blocked path'], category: 'Illegal Activities & Violations', subcategory: 'Encroachments', confidence: 0.90 },
-  { matches: ['unauthorized construction', 'illegal construction'], category: 'Illegal Activities & Violations', subcategory: 'Unauthorized Construction', confidence: 0.92 },
-  { matches: ['illegal dumping', 'illegal disposal'], category: 'Illegal Activities & Violations', subcategory: 'Illegal Dumping', confidence: 0.91 },
-];
-
-function normalizeDetectedIssues(value) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((issue) => String(issue || '').trim().toLowerCase())
-    .filter(Boolean);
-}
-
 function isValidClassification(category, subcategory) {
   return Boolean(category && subcategory && AI_CATEGORY_MAP[category]?.includes(subcategory));
 }
 
-async function generateJsonContent(model, prompt, imageParts = []) {
-  const result = await model.generateContent(imageParts.length > 0 ? [prompt, ...imageParts] : prompt);
-  return safeParseJson(result.response.text());
-}
-
-/**
- * Classify detected issues using strict category rules
- * NEVER defaults to "Projects & Other" unless no match found
- */
-function classifyDetectedIssuesFallback(detectedIssues) {
-  // Find highest confidence match
-  let bestMatch = null;
-  let maxConfidence = -1;
-
-  for (const issue of detectedIssues) {
-    const rule = STRICT_CATEGORY_RULES.find(({ matches }) =>
-      matches.some(m => issue.includes(m) || m.includes(issue))
-    );
-
-    if (rule && rule.confidence > maxConfidence) {
-      bestMatch = rule;
-      maxConfidence = rule.confidence;
-    }
-  }
-
-  if (bestMatch) {
-    return {
-      category: bestMatch.category,
-      subcategory: bestMatch.subcategory,
-      confidence: bestMatch.confidence,
-    };
-  }
-
-  // FALLBACK: Only if literally no matches found
-  return {
-    category: 'Roads & Infrastructure',
-    subcategory: 'Roads & Potholes',
-    confidence: 0.35,
-  };
-}
-
-/**
- * Description building - NO AI SLOP
- * 40-60 words, clearly states issue + risk/impact, no locations, no filler
- */
-function buildDescriptionForSubcategory(subcategory, detectedIssues) {
-  const primaryIssue = detectedIssues[0] || 'civic issue';
-
-  const descriptions = {
-    'Roads & Potholes': 'Large pothole causing significant damage to road surface and creating serious risk of vehicle damage, loss of control, and accidents. Especially hazardous in heavy traffic or low visibility conditions.',
-    'Footpaths & Sidewalks': 'Broken or damaged footpath creating safety hazard for pedestrians. Risk of trips, falls, and injuries. Reduces accessibility for elderly and disabled persons.',
-    'Traffic Signals & Signs': 'Damaged or non-functional traffic signal creating confusion and collision risk. Vehicles and pedestrians cannot rely on clear traffic control, increasing accident risk significantly.',
-    'Road Markings & Speed Breakers': 'Faded road markings or missing speed breakers reducing driver awareness. Creates speeding risk and unsafe conditions, particularly in residential or school zones.',
-    'Traffic Obstruction': 'Road obstruction blocking regular traffic flow and creating congestion. Vehicles cannot pass safely, causing delays, accidents, and emergency response time increases.',
-    'Garbage & Waste': 'Accumulated garbage creating unhygienic surroundings and foul smell. Increases pest activity, waste spread risk, and makes area uncomfortable for residents and pedestrians.',
-    'Drainage & Sewage': 'Drainage problem causing overflow, stagnant water, and unpleasant smell. Creates slipping hazard, health risk, and increases likelihood of further infrastructure damage.',
-    'Public Toilets': 'Public toilet facility damaged or non-functional. Affects public health and sanitation, reducing access to essential facilities for community members.',
-    'Dead Animals': 'Dead animal creating public health concern and unpleasant conditions. Poses hygiene risk and requires immediate removal and area sanitization.',
-    'Pest Infestation': 'Pest infestation creating unhygienic conditions and health risk. Affects public safety and increases disease transmission risk in the affected area.',
-    'Open Manholes / Safety Hazards': 'Open manhole creating serious safety hazard. Risk of falls, injuries, or accidents for pedestrians and vehicles passing through the area.',
-    'Water Supply Issues': 'Water supply problem affecting regular service and public access. Creates inconvenience and increases risk of service disruption for community.',
-    'Water Leakage / Pipeline Damage': 'Water leakage from damaged pipeline causing wastage and infrastructure damage. Creates wet surface hazard and increases risk of further damage if not repaired.',
-    'Flooding / Waterlogging': 'Waterlogging causing flooding risk in the area. Creates safety hazard for pedestrians and vehicles, reduces accessibility, and causes property damage risk.',
-    'Power Outage': 'Power outage affecting electricity supply. Causes inconvenience and creates safety risk, especially in evenings when lighting is essential.',
-    'Streetlight Not Working': 'Broken streetlight reducing street illumination. Creates safety problem for drivers, riders, and pedestrians. Increased accident and crime risk.',
-    'Exposed / Hanging Wires': 'Exposed or hanging electrical wires creating electrocution risk. Serious safety hazard for pedestrians, vehicles, and especially children in the area.',
-    'Transformer Issues': 'Transformer malfunction affecting power distribution. Creates electricity supply risk and requires urgent corrective action.',
-    'Illegal Banners / Hoardings': 'Illegal banner or hoarding obstructing visibility and contributing to visual clutter. Interferes with safe movement and clear signage readability.',
-    'Encroachments': 'Encroachment blocking public space access. Creates difficulty for safe movement and pedestrian passage, affecting regular commuters.',
-    'Unauthorized Construction': 'Unauthorized construction in public space creating obstruction and compliance issue. Poses safety risk and blocks pedestrian or vehicle movement.',
-    'Illegal Dumping': 'Illegal dumping creating mess and pollution. Affects public health and environment, increasing need for immediate cleanup and area sanitization.',
-  };
-
-  return descriptions[subcategory] || `Issue visible in the image creating public inconvenience or safety concern. Requires inspection and corrective action to resolve the problem.`;
-}
-
-function normalizeDescription(text) {
-  if (!text) return '';
-  
-  const cleaned = String(text)
-    .replace(/CIVIX auto-detects the issue|Auto-generated from the image|AUTO ROUTING|Tracking and notifications/gi, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  
-  return cleaned;
-}
-
-function wordCount(text) {
-  return text.trim().split(/\s+/).length;
-}
-
-function ensureDescriptionLength(description) {
-  // Ensure 40-60 words
-  const words = description.trim().split(/\s+/);
-  
-  if (words.length < 40) {
-    return description;
-  }
-  
-  if (words.length > 60) {
-    return words.slice(0, 60).join(' ') + '.';
-  }
-  
-  return description;
-}
-
-function clampConfidence(value, fallback = 0.35) {
+function clampConfidence(value, fallback = 0.5) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
     return fallback;
   }
-
   return Math.max(0, Math.min(1, parsed));
 }
 
 /**
- * OUTPUT FORMAT (STRICT - NO AI SLOP)
- * Returns ONLY the required fields
+ * Build the valid categories string for the prompt
+ */
+function buildCategoryList() {
+  return Object.entries(AI_CATEGORY_MAP)
+    .map(([category, subcategories]) => `- ${category}: ${subcategories.join(', ')}`)
+    .join('\n');
+}
+
+/**
+ * Analyze an image using Gemini Vision API
+ * Makes ONE well-structured API call that returns category, subcategory, and description
+ * Only falls back to hardcoded values when the API genuinely fails
  */
 export const analyzeIssueImage = async (file, context = {}) => {
-  if (!file || !genAI) {
-    return buildFallbackAnalysis(context);
+  if (!file) {
+    console.warn('analyzeIssueImage: No file provided');
+    return buildUnclassifiedAnalysis('No image file was provided.');
+  }
+
+  if (!genAI) {
+    console.error('analyzeIssueImage: Gemini API key is missing or invalid');
+    return buildUnclassifiedAnalysis('AI service is not configured. Please check your API key.');
   }
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const base64Str = await toBase64(file);
-
-    const visionPrompt = `You are a civic issue analyzer. Identify clearly visible civic or infrastructure problems in this image.
-
-Focus on physical damage first. If the image shows road damage, cracks, potholes, broken pavement, collapsed edges, surface failure, garbage, sewage, waterlogging, wires, streetlights, or construction obstruction, name those exact visible issues.
-
-Return ONLY valid JSON:
-{
-  "detected_issues": ["pothole", "broken road", "road crack"]
-}`;
-
-    const directClassificationPrompt = `You are classifying a civic issue directly from an image.
-
-Choose exactly one valid category and one valid subcategory.
-Prioritize visible physical damage. If you can see any road surface breakage, cracks, potholes, collapsed edges, or broken pavement, choose "Roads & Infrastructure" and the most accurate road-related subcategory.
-
-Valid categories and subcategories:
-${Object.entries(AI_CATEGORY_MAP).map(([category, subcategories]) => `${category}: ${subcategories.join(', ')}`).join('\n')}
-
-Return ONLY valid JSON:
-{
-  "category": "",
-  "subcategory": "",
-  "confidence": 0
-}`;
-
-    const classificationPrompt = `You are a classification AI.
-
-Your job is to map detected issues to the MOST ACCURATE category and subcategory.
-
-Choose exactly one valid category and one valid subcategory from:
-${Object.entries(AI_CATEGORY_MAP).map(([category, subcategories]) => `${category}: ${subcategories.join(', ')}`).join('\n')}
-
-Prioritize visible physical damage, especially road surface damage. If any detected issue includes pothole, crater, broken road, road crack, damaged road, broken pavement, or hole, choose "Roads & Infrastructure" with the strongest matching road-related subcategory.
-
-Return ONLY valid JSON:
-{
-  "category": "",
-  "subcategory": "",
-  "confidence": 0
-}`;
 
     const imageParts = [
       {
@@ -273,118 +75,159 @@ Return ONLY valid JSON:
       }
     ];
 
-    const imageClassificationPrompt = `You are an AI system integrated into a production civic issue reporting app.
+    const prompt = `You are an AI system built into a civic issue reporting app called CIVIX. Your job is to analyze photos of civic/infrastructure problems taken by citizens and classify them accurately.
 
-Analyze the IMAGE directly and return the most accurate classification from visible evidence.
+INSTRUCTIONS:
+1. Look at the image carefully and identify the PRIMARY civic issue visible.
+2. Choose exactly ONE category and ONE subcategory from the valid list below.
+3. Write a description (40-60 words) that describes WHAT is visible in this specific image, the risk or impact it creates, and why it needs attention. Be specific to what you actually see — do NOT use generic template language.
+4. Estimate your confidence (0.0 to 1.0) in your classification.
 
-Rules:
-- Focus on what is clearly visible in the image.
-- Prioritize visible physical damage or hazards.
-- Do not guess from location or assumptions.
-- Choose exactly one valid category and one valid subcategory.
-- If electrical wires, fire, sparking, damaged poles, or dangerous electrical infrastructure are visible, prefer an electrical issue classification.
+VALID CATEGORIES AND SUBCATEGORIES:
+${buildCategoryList()}
 
-Valid categories and subcategories:
-${Object.entries(AI_CATEGORY_MAP).map(([category, subcategories]) => `${category}: ${subcategories.join(', ')}`).join('\n')}
+CLASSIFICATION RULES:
+- Choose the category and subcategory that BEST matches the PRIMARY visible issue.
+- If you see road damage, cracks, potholes, or broken road surface → "Roads & Infrastructure" / "Roads & Potholes"
+- If you see garbage, waste piles, litter, or trash → "Sanitation & Public Health" / "Garbage & Waste"
+- If you see water overflow, clogged drains, sewage → "Sanitation & Public Health" / "Drainage & Sewage"
+- If you see broken streetlights or non-functional lights → "Electrical Issues" / "Streetlight Not Working"
+- If you see exposed or hanging wires → "Electrical Issues" / "Exposed / Hanging Wires"
+- If you see flooding or waterlogged areas → "Water & Utilities" / "Flooding / Waterlogging"
+- If you see illegal banners or hoardings → "Illegal Activities & Violations" / "Illegal Banners / Hoardings"
+- If you see encroachment on public space → "Illegal Activities & Violations" / "Encroachments"
+- Pick the most specific and accurate match based on visual evidence.
 
-Return ONLY valid JSON:
+DESCRIPTION RULES:
+- Describe what you ACTUALLY see in this specific image.
+- Mention the visible condition, risk, and impact.
+- Do NOT include location names, addresses, or area details.
+- Do NOT use filler phrases like "This image shows" or "As seen in the picture".
+- Keep it between 40 and 60 words.
+
+Return ONLY valid JSON in this exact format:
 {
-  "category": "",
-  "subcategory": "",
-  "description": "",
-  "confidence": 0
+  "category": "<exact category from the list>",
+  "subcategory": "<exact subcategory from the list>",
+  "description": "<40-60 word description based on what you see>",
+  "confidence": <number between 0 and 1>
 }`;
 
-    let detectedIssues = [];
-    try {
-      const parsedVision = await generateJsonContent(model, visionPrompt, imageParts);
-      detectedIssues = normalizeDetectedIssues(parsedVision.detected_issues);
-    } catch (error) {
-      detectedIssues = [];
-    }
+    const result = await model.generateContent([prompt, ...imageParts]);
+    const responseText = result.response.text();
+    const parsed = safeParseJson(responseText);
 
-    let classification = classifyDetectedIssuesFallback(detectedIssues);
-    let imageBasedResult = null;
-
-    try {
-      const parsedImageClassification = await generateJsonContent(model, imageClassificationPrompt, imageParts);
-      if (isValidClassification(parsedImageClassification.category, parsedImageClassification.subcategory)) {
-        imageBasedResult = {
-          category: parsedImageClassification.category,
-          subcategory: parsedImageClassification.subcategory,
-          description: normalizeDescription(parsedImageClassification.description),
-          confidence: clampConfidence(parsedImageClassification.confidence, 0.7),
-        };
-        classification = {
-          category: imageBasedResult.category,
-          subcategory: imageBasedResult.subcategory,
-          confidence: imageBasedResult.confidence,
-        };
-      }
-    } catch (error) {
-      imageBasedResult = null;
-    }
-
-    if (detectedIssues.length > 0) {
-      try {
-        const parsedClassification = await generateJsonContent(
-          model,
-          `${classificationPrompt}\n\nDetected issues: ${JSON.stringify(detectedIssues)}`
-        );
-
-        if (!imageBasedResult && isValidClassification(parsedClassification.category, parsedClassification.subcategory)) {
-          classification = {
-            category: parsedClassification.category,
-            subcategory: parsedClassification.subcategory,
-            confidence: clampConfidence(parsedClassification.confidence, classification.confidence),
-          };
-        }
-      } catch (error) {
-        classification = classifyDetectedIssuesFallback(detectedIssues);
+    // Validate the response
+    if (!isValidClassification(parsed.category, parsed.subcategory)) {
+      console.warn('Gemini returned invalid category/subcategory:', parsed.category, '/', parsed.subcategory);
+      
+      // Try to find the closest valid match
+      const corrected = findClosestValidCategory(parsed.category, parsed.subcategory);
+      if (corrected) {
+        parsed.category = corrected.category;
+        parsed.subcategory = corrected.subcategory;
+      } else {
+        console.error('Could not map Gemini response to valid categories.');
+        return buildUnclassifiedAnalysis('AI could not classify this image accurately. Please select the category manually.');
       }
     }
 
-    if (!imageBasedResult && !isValidClassification(classification.category, classification.subcategory)) {
-      try {
-        const directClassification = await generateJsonContent(model, directClassificationPrompt, imageParts);
-        if (isValidClassification(directClassification.category, directClassification.subcategory)) {
-          classification = {
-            category: directClassification.category,
-            subcategory: directClassification.subcategory,
-            confidence: clampConfidence(directClassification.confidence, 0.55),
-          };
-        }
-      } catch (error) {
-        classification = classifyDetectedIssuesFallback(detectedIssues);
-      }
+    // Validate description
+    const description = parsed.description?.trim();
+    if (!description || description.length < 20) {
+      console.warn('Gemini returned weak description, keeping classification but requesting description');
+      parsed.description = `Civic issue detected: ${parsed.subcategory} under ${parsed.category}. Visible damage or hazard requires inspection and corrective action by the responsible department to prevent further deterioration and ensure public safety in the affected area.`;
     }
 
-    let description = imageBasedResult?.description || '';
-    if (!description) {
-      description = ensureDescriptionLength(
-        buildDescriptionForSubcategory(classification.subcategory, detectedIssues)
-      );
-    }
-
-    // STEP 4: Get Civix category mapping
     const civixCategory = getCivixCategoryFromAiClassification(
-      classification.category,
-      classification.subcategory
+      parsed.category,
+      parsed.subcategory
     );
 
     return {
-      category: classification.category,
-      subcategory: classification.subcategory,
-      description: description,
-      confidence: classification.confidence,
-      issue_category: classification.category,
-      issue_subcategory: classification.subcategory,
-      ai_description: description,
-      civixCategory: civixCategory || 'Road Damage / Pothole',
-      status: 'success'
+      category: parsed.category,
+      subcategory: parsed.subcategory,
+      description: parsed.description,
+      confidence: clampConfidence(parsed.confidence, 0.7),
+      issue_category: parsed.category,
+      issue_subcategory: parsed.subcategory,
+      ai_description: parsed.description,
+      civixCategory: civixCategory || 'Other',
+      status: 'success',
     };
   } catch (error) {
-    console.error("Gemini Analysis Error:", error);
-    return buildFallbackAnalysis(context);
+    console.error('Gemini Analysis Error:', error);
+    return buildUnclassifiedAnalysis(`AI analysis failed: ${error.message || 'Unknown error'}. Please classify manually.`);
   }
 };
+
+/**
+ * Try to find the closest valid category/subcategory if Gemini returned something slightly off
+ */
+function findClosestValidCategory(rawCategory, rawSubcategory) {
+  if (!rawCategory || !rawSubcategory) return null;
+
+  const catLower = rawCategory.toLowerCase();
+  const subLower = rawSubcategory.toLowerCase();
+
+  // Try exact match first (already handled by isValidClassification, but just in case)
+  for (const [category, subcategories] of Object.entries(AI_CATEGORY_MAP)) {
+    if (category.toLowerCase() === catLower) {
+      const matchedSub = subcategories.find(s => s.toLowerCase() === subLower);
+      if (matchedSub) {
+        return { category, subcategory: matchedSub };
+      }
+      // Category matched but subcategory didn't — try fuzzy subcategory
+      const fuzzySub = subcategories.find(s =>
+        s.toLowerCase().includes(subLower) || subLower.includes(s.toLowerCase())
+      );
+      if (fuzzySub) {
+        return { category, subcategory: fuzzySub };
+      }
+      // Category matched, just return first subcategory
+      return { category, subcategory: subcategories[0] };
+    }
+  }
+
+  // Try fuzzy category match
+  for (const [category, subcategories] of Object.entries(AI_CATEGORY_MAP)) {
+    if (category.toLowerCase().includes(catLower) || catLower.includes(category.toLowerCase())) {
+      const matchedSub = subcategories.find(s =>
+        s.toLowerCase() === subLower ||
+        s.toLowerCase().includes(subLower) ||
+        subLower.includes(s.toLowerCase())
+      );
+      return { category, subcategory: matchedSub || subcategories[0] };
+    }
+  }
+
+  // Try matching subcategory across all categories
+  for (const [category, subcategories] of Object.entries(AI_CATEGORY_MAP)) {
+    const matchedSub = subcategories.find(s =>
+      s.toLowerCase() === subLower ||
+      s.toLowerCase().includes(subLower) ||
+      subLower.includes(s.toLowerCase())
+    );
+    if (matchedSub) {
+      return { category, subcategory: matchedSub };
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Returns a clear signal that manual classification is needed
+ */
+function buildUnclassifiedAnalysis(reason = '') {
+  return {
+    category: '',
+    subcategory: '',
+    description: reason || 'AI analysis was unable to process this image. Please review the category and description, and update them manually if needed.',
+    confidence: 0,
+    civixCategory: '',
+    issue_category: '',
+    issue_subcategory: '',
+    status: 'unclassified',
+  };
+}

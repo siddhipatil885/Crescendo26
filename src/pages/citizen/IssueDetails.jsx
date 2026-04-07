@@ -3,7 +3,8 @@ import { CheckCircle2, UserCheck, ShieldCheck, MapPin, Loader2, Camera, Bell, Ar
 import { subscribeToIssue, updateIssue, upvoteIssue } from '../../services/issues';
 import { uploadToCloudinary } from '../../services/storage';
 import { computeEscalationStatus, formatCountdown, getIssueImage } from '../../utils/escalation';
-import { enableIssueNotifications, isTrackingIssue, trackIssue } from '../../utils/notifications';
+import { ACTIVE_ISSUE_STATUSES, ISSUE_STATUS, RESOLVED_ISSUE_STATUSES, isPendingStatus, isResolvedStatus, statusEquals } from '../../utils/constants';
+import { enableIssueNotifications, isTrackingIssue } from '../../utils/notifications';
 import { hasUpvoted, markUpvoted } from '../../utils/upvote';
 
 export default function IssueDetails({ issueId, isAdmin }) {
@@ -17,9 +18,6 @@ export default function IssueDetails({ issueId, isAdmin }) {
   const [now, setNow] = useState(() => new Date());
   const [showRTI, setShowRTI] = useState(false);
   const verifyInputRef = useRef(null);
-
-  const IN_PROGRESS_STATUSES = ['in_progress', 'in progress', 'review', 'resolved', 'completed', 'verified'];
-  const RESOLVED_STATUSES = ['resolved', 'completed', 'verified'];
 
   useEffect(() => {
     if (!issueId) {
@@ -47,6 +45,10 @@ export default function IssueDetails({ issueId, isAdmin }) {
     const intervalId = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    setNotificationsEnabled(isTrackingIssue(issueId));
+  }, [issueId]);
 
   const handleShareResolution = () => {
     if (navigator.share) {
@@ -86,7 +88,6 @@ export default function IssueDetails({ issueId, isAdmin }) {
   };
 
   const handleTrackNotifications = async () => {
-    trackIssue(issueId);
     const result = await enableIssueNotifications(issueId);
     setNotificationsEnabled(result.enabled || isTrackingIssue(issueId));
   };
@@ -117,7 +118,7 @@ export default function IssueDetails({ issueId, isAdmin }) {
       const afterImageUrl = await uploadToCloudinary(file);
       await updateIssue(issueId, {
         afterImage: afterImageUrl,
-        status: 'verified'
+        status: ISSUE_STATUS.VERIFIED
       });
       // onSnapshot handles the refresh
     } catch (err) {
@@ -180,27 +181,27 @@ export default function IssueDetails({ issueId, isAdmin }) {
         <div style={{ backgroundColor: 'white', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem', border: '1px solid #E5E7EB' }}>
           <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#4B5563', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '1rem' }}>ADMIN CONTROLS</div>
           <div className="flex-row gap-3">
-            {currentStatus === 'pending' && (
+            {isPendingStatus(currentStatus) && (
               <button 
-                onClick={() => updateStatus('in_progress')}
+                onClick={() => updateStatus(ISSUE_STATUS.IN_PROGRESS)}
                 disabled={isUpdating}
                 style={{ backgroundColor: '#1E3A8A', color: 'white', flex: 1, padding: '0.75rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600', opacity: isUpdating ? 0.7 : 1 }}
               >
                 {isUpdating ? 'Updating...' : 'Move to In Progress'}
               </button>
             )}
-            {['pending', 'in_progress', 'review'].includes(currentStatus) && (
+            {[ISSUE_STATUS.OPEN, ISSUE_STATUS.PENDING, ...ACTIVE_ISSUE_STATUSES].some((status) => statusEquals(currentStatus, status)) && (
               <button 
-                onClick={() => updateStatus('resolved')}
+                onClick={() => updateStatus(ISSUE_STATUS.RESOLVED)}
                 disabled={isUpdating}
                 style={{ backgroundColor: '#047857', color: 'white', flex: 1, padding: '0.75rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600', opacity: isUpdating ? 0.7 : 1 }}
               >
                 {isUpdating ? 'Updating...' : 'Mark Resolved'}
               </button>
             )}
-            {['resolved', 'verified'].includes(currentStatus) && (
+            {[ISSUE_STATUS.RESOLVED, ISSUE_STATUS.VERIFIED].some((status) => statusEquals(currentStatus, status)) && (
                <button 
-               onClick={() => updateStatus('pending')}
+               onClick={() => updateStatus(ISSUE_STATUS.PENDING)}
                disabled={isUpdating}
                style={{ backgroundColor: '#F3F4F6', color: '#4B5563', flex: 1, padding: '0.75rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: '600', border: '1px solid #E5E7EB' }}
              >
@@ -219,17 +220,17 @@ export default function IssueDetails({ issueId, isAdmin }) {
           
           <TimelineItem icon={<CheckCircle2 size={16} color="#047857" />} title="REPORTED" date={formatDate(issue.createdAt)} active={true} />
           <TimelineItem 
-            icon={<UserCheck size={16} color={IN_PROGRESS_STATUSES.includes(currentStatus) ? '#047857' : '#9CA3AF'} />} 
+            icon={<UserCheck size={16} color={ACTIVE_ISSUE_STATUSES.concat(RESOLVED_ISSUE_STATUSES).some((status) => statusEquals(currentStatus, status)) ? '#047857' : '#9CA3AF'} />} 
             title="IN PROGRESS" 
-            date={IN_PROGRESS_STATUSES.includes(currentStatus) ? 'Started' : 'Pending'} 
-            active={IN_PROGRESS_STATUSES.includes(currentStatus)} 
+            date={ACTIVE_ISSUE_STATUSES.concat(RESOLVED_ISSUE_STATUSES).some((status) => statusEquals(currentStatus, status)) ? 'Started' : 'Pending'} 
+            active={ACTIVE_ISSUE_STATUSES.concat(RESOLVED_ISSUE_STATUSES).some((status) => statusEquals(currentStatus, status))} 
           />
           <TimelineItem 
-            icon={<CheckCircle2 size={16} color={RESOLVED_STATUSES.includes(currentStatus) ? '#047857' : '#9CA3AF'} />} 
+            icon={<CheckCircle2 size={16} color={isResolvedStatus(currentStatus) ? '#047857' : '#9CA3AF'} />} 
             title="RESOLVED" 
-            date={RESOLVED_STATUSES.includes(currentStatus) ? 'Done' : 'Pending'} 
-            active={RESOLVED_STATUSES.includes(currentStatus)} 
-            bg={RESOLVED_STATUSES.includes(currentStatus) ? '#9EF0C2' : '#F3F4F6'} 
+            date={isResolvedStatus(currentStatus) ? 'Done' : 'Pending'} 
+            active={isResolvedStatus(currentStatus)} 
+            bg={isResolvedStatus(currentStatus) ? '#9EF0C2' : '#F3F4F6'} 
           />
         </div>
       </div>
@@ -388,7 +389,7 @@ export default function IssueDetails({ issueId, isAdmin }) {
       )}
 
       {/* Verify Resolution */}
-      {!isAdmin && currentStatus === 'resolved' && (
+      {!isAdmin && statusEquals(currentStatus, ISSUE_STATUS.RESOLVED) && (
         <div style={{ backgroundColor: '#EFFFF4', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem' }}>
           <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#047857', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>VERIFY RESOLUTION</div>
           <p style={{ fontSize: '0.8rem', color: '#374151', marginBottom: '1rem', lineHeight: '1.4' }}>Upload an "after" photo to verify this issue has been resolved.</p>

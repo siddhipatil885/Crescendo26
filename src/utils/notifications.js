@@ -41,18 +41,39 @@ export async function enableIssueNotifications(issueId) {
   trackIssue(issueId);
 
   if (typeof window === 'undefined' || !('Notification' in window)) {
-    return { enabled: false, reason: 'unsupported' };
+    return {
+      enabled: false,
+      reason: 'unsupported',
+      error: 'Notifications are not supported in this browser.',
+      message: 'Notifications are not supported in this browser.',
+    };
   }
 
   if (Notification.permission === 'granted') {
     return { enabled: true, reason: 'granted' };
   }
 
-  const permission = await Notification.requestPermission();
-  return {
-    enabled: permission === 'granted',
-    reason: permission,
-  };
+  try {
+    const permission = await Notification.requestPermission();
+    return {
+      enabled: permission === 'granted',
+      reason: permission,
+      ...(permission === 'granted'
+        ? {}
+        : {
+            error: 'Notification permission was denied.',
+            message: 'Notification permission was denied.',
+          }),
+    };
+  } catch (error) {
+    console.error('enableIssueNotifications failed:', error);
+    return {
+      enabled: false,
+      reason: 'error',
+      error: error?.message || 'Unable to enable notifications.',
+      message: error?.message || 'Unable to enable notifications.',
+    };
+  }
 }
 
 export function getIssueStatusCache() {
@@ -75,6 +96,11 @@ export function notifyStatusChange(issue) {
   const title = `Issue ${issue.id} updated`;
   const body = `${issue.category || 'Civic issue'} is now ${String(issue.status || 'updated').replace(/_/g, ' ')}.`;
 
-  new Notification(title, { body });
-  return true;
+  try {
+    new Notification(title, { body });
+    return true;
+  } catch (error) {
+    console.error('notifyStatusChange failed:', error);
+    return false;
+  }
 }

@@ -1,7 +1,6 @@
 import { db } from "./firebase";
 import { 
   collection, 
-  addDoc, 
   getDocs, 
   getDoc,
   doc, 
@@ -19,7 +18,7 @@ import {
   onSnapshot
 } from "firebase/firestore";
 import { saveToken } from "../utils/token";
-import { getDepartmentForCategory, REPORT_SOURCES } from "../utils/constants";
+import { getDepartmentForCategory, ISSUE_STATUS, REPORT_SOURCES } from "../utils/constants";
 
 const ISSUES_COLLECTION = "issues";
 
@@ -37,7 +36,7 @@ export const createIssue = async (issueData) => {
       {
         type: 'reported',
         title: 'Complaint reported',
-        status: 'open',
+        status: ISSUE_STATUS.OPEN,
         note: issueData.description || issueData.ai_description || '',
         source: issueData.report_source || REPORT_SOURCES.APP,
         createdAt: createdAtClient.toISOString(),
@@ -73,7 +72,7 @@ export const createIssue = async (issueData) => {
       reported_at: serverTimestamp(),
       updated_at: serverTimestamp(),
       deadline: issueData.deadline || Timestamp.fromDate(deadlineClient),
-      status: issueData.status || "open",
+      status: issueData.status || ISSUE_STATUS.OPEN,
       ...(issueData.reporter_name && { reporter_name: issueData.reporter_name }),
       ...(issueData.reporter_phone && { reporter_phone: issueData.reporter_phone }),
     };
@@ -153,13 +152,18 @@ export const updateIssue = async (id, updates) => {
 };
 
 export const upvoteIssue = async (issueId) => {
-  const issueRef = doc(db, ISSUES_COLLECTION, issueId);
+  try {
+    const issueRef = doc(db, ISSUES_COLLECTION, issueId);
 
-  await updateDoc(issueRef, {
-    upvotes: increment(1),
-    updatedAt: serverTimestamp(),
-    updated_at: serverTimestamp(),
-  });
+    await updateDoc(issueRef, {
+      upvotes: increment(1),
+      updatedAt: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error(`upvoteIssue failed for issueId ${issueId}:`, error);
+    throw error;
+  }
 };
 
 /**

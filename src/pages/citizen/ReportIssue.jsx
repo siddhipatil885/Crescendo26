@@ -9,6 +9,7 @@ import {
   getCivixCategoryFromAiClassification,
   getDepartmentForCategory,
   getSubcategoriesForAiCategory,
+  ISSUE_STATUS,
   REPORT_SOURCES,
 } from '../../utils/constants';
 import { trackIssue } from '../../utils/notifications';
@@ -101,18 +102,21 @@ export default function ReportIssue({ draftImage, onSubmit }) {
           return;
         }
 
+        if (ai.status !== 'success') {
+          setError(ai.description || 'AI analysis could not classify this image. Please complete the details manually.');
+        }
+
         setAutoData({
           lat: location.lat,
           lng: location.lng,
           location: reverseLookup.displayName,
           neighbourhood: reverseLookup.neighbourhood,
-          aiCategory: ai.issue_category || ai.formatted_output?.category || 'Roads & Infrastructure',
-          subcategory: ai.issue_subcategory || ai.formatted_output?.subcategory || 'Roads & Potholes',
-          civixCategory: ai.civixCategory || getCivixCategoryFromAiClassification(
-            ai.issue_category || ai.formatted_output?.category || 'Roads & Infrastructure',
-            ai.issue_subcategory || ai.formatted_output?.subcategory || 'Roads & Potholes'
-          ),
-          description: ai.description,
+          aiCategory: ai.status === 'success' ? ai.issue_category : '',
+          subcategory: ai.status === 'success' ? ai.issue_subcategory : '',
+          civixCategory: ai.status === 'success'
+            ? (ai.civixCategory || getCivixCategoryFromAiClassification(ai.issue_category, ai.issue_subcategory))
+            : '',
+          description: ai.description || '',
         });
       } catch (autopopulateError) {
         if (!cancelled) {
@@ -148,19 +152,24 @@ export default function ReportIssue({ draftImage, onSubmit }) {
         address: resolvedDraft.location,
       });
 
+      if (ai.status !== 'success') {
+        setError(ai.description || 'AI analysis could not classify this image. Please update the details manually.');
+      }
+
       setAutoData((current) => ({
         ...current,
-        aiCategory: ai.issue_category || ai.formatted_output?.category || current.aiCategory,
-        subcategory: ai.issue_subcategory || ai.formatted_output?.subcategory || current.subcategory,
-        civixCategory: ai.civixCategory || getCivixCategoryFromAiClassification(
-          ai.issue_category || ai.formatted_output?.category || current.aiCategory,
-          ai.issue_subcategory || ai.formatted_output?.subcategory || current.subcategory
-        ),
-        description: ai.description,
+        aiCategory: ai.status === 'success' ? (ai.issue_category || current.aiCategory) : current.aiCategory,
+        subcategory: ai.status === 'success' ? (ai.issue_subcategory || current.subcategory) : current.subcategory,
+        civixCategory: ai.status === 'success'
+          ? (ai.civixCategory || getCivixCategoryFromAiClassification(
+              ai.issue_category || current.aiCategory,
+              ai.issue_subcategory || current.subcategory
+            ))
+          : current.civixCategory,
+        description: ai.description || current.description,
       }));
       setOverrides((current) => ({
         ...current,
-        location: '',
         aiCategory: '',
         subcategory: '',
         description: '',
@@ -198,7 +207,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
         issue_subcategory: resolvedDraft.subcategory,
         description: resolvedDraft.description,
         ai_description: autoData.description || resolvedDraft.description,
-        status: 'open',
+        status: ISSUE_STATUS.OPEN,
         lat: resolvedDraft.lat,
         lng: resolvedDraft.lng,
         neighbourhood: resolvedDraft.neighbourhood,
@@ -278,6 +287,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
               }}
               style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: '0.9rem', color: '#1F2937', backgroundColor: '#F9FAFB' }}
             >
+              <option value="">Select a category</option>
               {Object.keys(AI_CATEGORY_MAP).map((category) => (
                 <option key={category} value={category}>{category}</option>
               ))}
@@ -289,8 +299,10 @@ export default function ReportIssue({ draftImage, onSubmit }) {
             <select
               value={resolvedDraft.subcategory}
               onChange={(event) => setOverrides((current) => ({ ...current, subcategory: event.target.value }))}
+              disabled={!resolvedDraft.aiCategory}
               style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #E5E7EB', fontSize: '0.9rem', color: '#1F2937', backgroundColor: '#F9FAFB' }}
             >
+              <option value="">Select a subcategory</option>
               {getSubcategoriesForAiCategory(resolvedDraft.aiCategory).map((subcategory) => (
                 <option key={subcategory} value={subcategory}>{subcategory}</option>
               ))}

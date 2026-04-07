@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { subscribeToIssues } from '../services/issues';
+import { ISSUE_STATUS } from '../utils/constants';
 import {
   getIssueStatusCache,
   getTrackedIssues,
@@ -23,7 +24,7 @@ export default function useIssueNotifications() {
         issues
           .filter((issue) => trackedIssues.includes(issue.id))
           .forEach((issue) => {
-            const nextStatus = issue.status || 'open';
+            const nextStatus = issue.status || ISSUE_STATUS.OPEN;
             const previousStatus = latestCache[issue.id];
 
             if (previousStatus && previousStatus !== nextStatus) {
@@ -35,7 +36,9 @@ export default function useIssueNotifications() {
 
         setIssueStatusCache(latestCache);
       },
-      () => {},
+      (error) => {
+        console.error('useIssueNotifications subscription error:', error);
+      },
       200
     );
 

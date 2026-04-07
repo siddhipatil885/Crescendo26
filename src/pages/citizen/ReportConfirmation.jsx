@@ -4,6 +4,7 @@ import { enableIssueNotifications } from '../../utils/notifications';
 
 export default function ReportConfirmation({ issue, onTrackIssue }) {
   const [notificationState, setNotificationState] = React.useState('idle');
+  const [notificationError, setNotificationError] = React.useState('');
   const [copiedToken, setCopiedToken] = React.useState(false);
 
   if (!issue) {
@@ -12,15 +13,24 @@ export default function ReportConfirmation({ issue, onTrackIssue }) {
 
   const handleEnableNotifications = async () => {
     setNotificationState('loading');
+    setNotificationError('');
     const result = await enableIssueNotifications(issue.id);
     setNotificationState(result.enabled ? 'enabled' : 'unavailable');
+    if (!result.enabled) {
+      setNotificationError(result.error || result.message || 'Notifications could not be enabled on this device.');
+    }
   };
 
-  const handleCopyToken = () => {
+  const handleCopyToken = async () => {
     if (issue.claimToken) {
-      navigator.clipboard.writeText(issue.claimToken);
-      setCopiedToken(true);
-      setTimeout(() => setCopiedToken(false), 2000);
+      try {
+        await navigator.clipboard.writeText(issue.claimToken);
+        setCopiedToken(true);
+        setTimeout(() => setCopiedToken(false), 2000);
+      } catch (error) {
+        console.error('handleCopyToken failed:', error);
+        setCopiedToken(false);
+      }
     }
   };
 
@@ -150,6 +160,12 @@ export default function ReportConfirmation({ issue, onTrackIssue }) {
             ? 'Notifications enabled'
             : 'Enable status notifications'}
       </button>
+
+      {notificationState === 'unavailable' && notificationError && (
+        <p style={{ fontSize: '0.8rem', color: '#991B1B', lineHeight: '1.4' }}>
+          {notificationError}
+        </p>
+      )}
     </div>
   );
 }

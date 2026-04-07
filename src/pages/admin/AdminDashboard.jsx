@@ -1,15 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { MapPin, CheckCircle2, Clock, Loader2, LogOut } from 'lucide-react';
 import { subscribeToIssues, updateIssue } from '../../services/issues';
+import { ACTIVE_ISSUE_STATUSES, ISSUE_STATUS, isInProgressStatus, isPendingStatus, isResolvedStatus, statusEquals } from '../../utils/constants';
 import { timeAgo } from '../../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../auth/AuthFlow';
 
 const statusBadge = (status) => {
   const s = status?.toLowerCase();
-  if (s === 'pending' || s === 'open') return { bg: '#FFE4B5', color: '#B45309', label: 'PENDING' };
-  if (['in_progress', 'in progress', 'review'].includes(s)) return { bg: '#A8BAFA', color: '#1E3A8A', label: 'IN PROGRESS' };
-  if (['resolved', 'completed', 'verified'].includes(s)) return { bg: '#C6F6D5', color: '#047857', label: 'RESOLVED' };
+  if (isPendingStatus(s)) return { bg: '#FFE4B5', color: '#B45309', label: 'PENDING' };
+  if (isInProgressStatus(s)) return { bg: '#A8BAFA', color: '#1E3A8A', label: 'IN PROGRESS' };
+  if (isResolvedStatus(s)) return { bg: '#C6F6D5', color: '#047857', label: 'RESOLVED' };
   return { bg: '#F3F4F6', color: '#6B7280', label: 'UNKNOWN' };
 };
 
@@ -37,13 +38,12 @@ export default function AdminDashboard() {
 
   const stats = useMemo(() => {
     const total = issues.length;
-    const pending = issues.filter(i => ['pending', 'open'].includes(i.status?.toLowerCase())).length;
-    const inProgress = issues.filter(i => ['in_progress', 'in progress', 'review'].includes(i.status?.toLowerCase())).length;
+    const pending = issues.filter(i => isPendingStatus(i.status)).length;
+    const inProgress = issues.filter(i => isInProgressStatus(i.status)).length;
 
     const today = new Date().setHours(0,0,0,0);
     const resolvedToday = issues.filter(i => {
-      const isResolved = ['resolved', 'completed', 'verified'].includes(i.status?.toLowerCase());
-      if (!isResolved) return false;
+      if (!isResolvedStatus(i.status)) return false;
       const ts = i.updatedAt || i.updated_at;
       const updatedDate = ts?.toDate ? ts.toDate().setHours(0,0,0,0) : null;
       return updatedDate === today;
@@ -149,7 +149,7 @@ export default function AdminDashboard() {
             <div key={issue.id} style={{ backgroundColor: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', border: '1px solid #E5E7EB' }}>
               <div style={{ height: '140px', position: 'relative' }}>
                 <img src={issue.beforeImage || issue.beforeImageUrl || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=500&h=300&fit=crop'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={issue.category} />
-                {issue.status?.toLowerCase() === 'verified' && (
+                {statusEquals(issue.status, ISSUE_STATUS.VERIFIED) && (
                   <div style={{ position: 'absolute', top: '12px', right: '12px', backgroundColor: '#047857', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.6rem', fontWeight: '700' }}>VERIFIED</div>
                 )}
               </div>
@@ -177,7 +177,7 @@ export default function AdminDashboard() {
 
                 <div style={{ backgroundColor: badge.bg, padding: '0.6rem 1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: '700', color: badge.color, letterSpacing: '0.05em' }}>{badge.label}</span>
-                  {['resolved', 'completed', 'verified'].includes(currentStatus) ? (
+                  {isResolvedStatus(currentStatus) ? (
                     <CheckCircle2 size={16} color={badge.color} />
                   ) : (
                     <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: badge.color }}></div>
@@ -186,17 +186,17 @@ export default function AdminDashboard() {
 
                 {/* Admin Action Buttons */}
                 <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                  {['pending', 'open'].includes(currentStatus) && (
+                  {isPendingStatus(currentStatus) && (
                     <button
-                      onClick={() => handleStatusChange(issue.id, 'in_progress')}
+                      onClick={() => handleStatusChange(issue.id, ISSUE_STATUS.IN_PROGRESS)}
                       style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', backgroundColor: '#1E3A8A', color: 'white', fontSize: '0.7rem', fontWeight: '600', border: 'none', cursor: 'pointer' }}
                     >
                       → In Progress
                     </button>
                   )}
-                  {['pending', 'open', 'in_progress', 'review'].includes(currentStatus) && (
+                  {[ISSUE_STATUS.PENDING, ISSUE_STATUS.OPEN, ...ACTIVE_ISSUE_STATUSES].some((status) => statusEquals(currentStatus, status)) && (
                     <button
-                      onClick={() => handleStatusChange(issue.id, 'resolved')}
+                      onClick={() => handleStatusChange(issue.id, ISSUE_STATUS.RESOLVED)}
                       style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', backgroundColor: '#047857', color: 'white', fontSize: '0.7rem', fontWeight: '600', border: 'none', cursor: 'pointer' }}
                     >
                       ✓ Resolve

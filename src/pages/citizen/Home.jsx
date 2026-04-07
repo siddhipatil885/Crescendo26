@@ -167,9 +167,20 @@ export default function Home({ onNavigate }) {
             const computedStatus = computeEscalationStatus(issue, now);
             const countdown = formatCountdown(issue, now);
             const previewImage = getIssueImage(issue, 'before');
+            const handleNavigateToDetails = () => onNavigate('details', issue.id);
+            const handleKeyDown = (event) => {
+              if (event.key === 'Enter') {
+                handleNavigateToDetails();
+              }
+
+              if (event.key === ' ') {
+                event.preventDefault();
+                handleNavigateToDetails();
+              }
+            };
 
             return (
-              <div key={issue.id} onClick={() => onNavigate('details', issue.id)} role="button" tabIndex={0} style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1rem', cursor: 'pointer' }}>
+              <div key={issue.id} onClick={handleNavigateToDetails} onKeyDown={handleKeyDown} role="button" tabIndex={0} style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1rem', cursor: 'pointer' }}>
                 {previewImage ? (
                   <img src={previewImage} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} alt={issue.category || 'Issue'} />
                 ) : (
