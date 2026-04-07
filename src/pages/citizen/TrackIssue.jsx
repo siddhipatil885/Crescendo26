@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertCircle, Loader2, Search } from "lucide-react";
 import { subscribeToIssueByToken } from "../../services/issues";
+import { selectNewestIssue } from "../../utils/issueTracking";
 
 export default function TrackIssue({ initialToken = "" }) {
   const navigate = useNavigate();
@@ -284,58 +285,4 @@ export default function TrackIssue({ initialToken = "" }) {
       )}
     </div>
   );
-}
-
-function selectNewestIssue(issues) {
-  const latestIssue = [...issues].sort((leftIssue, rightIssue) => {
-    const leftTime = getComparableTime(leftIssue);
-    const rightTime = getComparableTime(rightIssue);
-    return rightTime - leftTime;
-  })[0];
-
-  return mapIssue(latestIssue);
-}
-
-function mapIssue(data) {
-  return {
-    id: data.id,
-    tokenId: data.tokenId ?? data.claimToken ?? "Unavailable",
-    timestamp:
-      resolveDateValue(data.timestamp) ??
-      resolveDateValue(data.updatedAt) ??
-      resolveDateValue(data.createdAt) ??
-      resolveDateValue(data.reported_at),
-  };
-}
-
-function getComparableTime(data) {
-  const resolvedDate =
-    resolveDateValue(data.timestamp) ??
-    resolveDateValue(data.updatedAt) ??
-    resolveDateValue(data.createdAt) ??
-    resolveDateValue(data.reported_at);
-
-  return resolvedDate?.getTime?.() ?? 0;
-}
-
-function resolveDateValue(value) {
-  if (!value) {
-    return null;
-  }
-
-  if (typeof value?.toDate === "function") {
-    return value.toDate();
-  }
-
-  if (typeof value === "number") {
-    const parsedFromNumber = new Date(value);
-    return Number.isNaN(parsedFromNumber.getTime()) ? null : parsedFromNumber;
-  }
-
-  if (typeof value?.seconds === "number") {
-    return new Date(value.seconds * 1000);
-  }
-
-  const parsedFromString = new Date(value);
-  return Number.isNaN(parsedFromString.getTime()) ? null : parsedFromString;
 }

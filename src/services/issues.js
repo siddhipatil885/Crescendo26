@@ -62,7 +62,6 @@ export const createIssue = async (issueData) => {
 
     const newIssue = {
       claimToken,
-      tokenId: issueData.tokenId || claimToken,
       category,
       subcategory: issueData.subcategory || '',
       issue_type: issueData.issue_type || '',

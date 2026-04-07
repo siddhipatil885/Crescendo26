@@ -42,7 +42,7 @@ export const useIssues = (filters = {}) => {
 
         const unsub = onSnapshot(q, (snap) => {
             setIssues(snap.docs.map((d) => {
-                const { claimToken, ...data } = d.data();
+                const { claimToken, tokenId, ...data } = d.data();
                 return { id: d.id, ...data };
             }));
             setLoading(false);
@@ -68,7 +68,6 @@ export const submitReport = async ({ photo, category, aiDescription, location, n
     const photoUrl = await uploadToCloudinary(photo);
 
     await addDoc(collection(db, "issues"), {
-        tokenId: claimToken,
         photo_url: photoUrl,
         resolution_photo_url: null,
         verification_photo_url: null,
