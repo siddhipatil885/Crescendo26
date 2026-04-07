@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
-import { auth } from './services/firebase'
+import { collection, query, where, getDocs } from 'firebase/firestore'
+import { auth, db } from './services/firebase'
 import App from './App'
 import MobileLayout from './components/MobileLayout'
 import AuthFlow from './pages/auth/AuthFlow'
@@ -17,10 +18,25 @@ function ProtectedRoute({ children }) {
       if (u) {
         try {
           const tokenResult = await u.getIdTokenResult()
-          const devAdminEmails = import.meta.env.VITE_DEV_ADMIN_EMAILS;
-          const isDevAdmin = devAdminEmails && devAdminEmails.split(',').includes(tokenResult.claims?.email || u.email);
           
-          if (tokenResult.claims?.admin || isDevAdmin) {
+          // 1. Check for hardcoded DEV whitelist
+          const devAdminEmails = import.meta.env.VITE_DEV_ADMIN_EMAILS;
+          const isDevAdmin = devAdminEmails && devAdminEmails.split(',').includes(u.email);
+          
+          // 2. Check for custom Firebase admin claims
+          const hasAdminClaim = tokenResult.claims?.admin;
+
+          // 3. Fetch for all authorized users from database
+          let isDbAdmin = false;
+          try {
+            const q = query(collection(db, "admins"), where("email", "==", u.email));
+            const querySnapshot = await getDocs(q);
+            isDbAdmin = !querySnapshot.empty;
+          } catch (fsErr) {
+            console.warn("Firestore admin check failed in ProtectedRoute", fsErr.message);
+          }
+
+          if (hasAdminClaim || isDevAdmin || isDbAdmin) {
             setUser(u)
           } else {
             setUser(null)
