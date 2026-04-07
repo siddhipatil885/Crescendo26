@@ -10,6 +10,12 @@ import {
 import IssueMarker from './IssueMarker';
 import 'leaflet/dist/leaflet.css';
 
+const STATUS_DOT_STYLES = {
+  pending: '#dc2626',
+  in_progress: '#f59e0b',
+  resolved: '#16a34a',
+};
+
 function SyncMapView({ center, zoom }) {
   const map = useMap();
 
@@ -61,11 +67,6 @@ export default function MapView({
   const hasIssues = issues.length > 0;
   const hasCenter = Array.isArray(center) && center.length === 2;
   const isCompact = variant === 'compact';
-  const statusDotStyles = {
-    pending: '#dc2626',
-    in_progress: '#f59e0b',
-    resolved: '#16a34a',
-  };
 
   return (
     <div
@@ -166,8 +167,8 @@ export default function MapView({
             />
             <ZoomControl position="topright" />
             <UserLocationMarker position={userLocation} />
-            {issues.map((issue) => (
-              <IssueMarker key={issue.id} issue={issue} />
+            {issues.map((issue, index) => (
+              <IssueMarker key={issue.id || `issue-${index}`} issue={issue} />
             ))}
           </MapContainer>
         ) : (
@@ -276,7 +277,7 @@ export default function MapView({
                 width: '16px',
                 height: '16px',
                 borderRadius: '50%',
-                backgroundColor: statusDotStyles.pending,
+                backgroundColor: STATUS_DOT_STYLES.pending,
                 flexShrink: 0,
               }}
             />
@@ -288,7 +289,7 @@ export default function MapView({
                 width: '16px',
                 height: '16px',
                 borderRadius: '50%',
-                backgroundColor: statusDotStyles.in_progress,
+                backgroundColor: STATUS_DOT_STYLES.in_progress,
                 flexShrink: 0,
               }}
             />
@@ -300,7 +301,7 @@ export default function MapView({
                 width: '16px',
                 height: '16px',
                 borderRadius: '50%',
-                backgroundColor: statusDotStyles.resolved,
+                backgroundColor: STATUS_DOT_STYLES.resolved,
                 flexShrink: 0,
               }}
             />

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { subscribeToIssues } from '../services/issues';
 import { getCurrentLocation } from '../services/geolocation';
 
@@ -24,12 +24,14 @@ export default function useIssueMapData(pageSize = 100) {
   const [mapCenter, setMapCenter] = useState(null);
   const [locationError, setLocationError] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const userLocationRef = useRef(null);
 
   useEffect(() => {
     const fetchUserLocation = async () => {
       try {
         const location = await getCurrentLocation();
         const nextCenter = [location.lat, location.lng];
+        userLocationRef.current = nextCenter;
         setUserLocation(nextCenter);
         setMapCenter(nextCenter);
       } catch (locationFetchError) {
@@ -46,7 +48,7 @@ export default function useIssueMapData(pageSize = 100) {
         const validIssues = fetchedIssues.filter(hasValidCoordinates);
         setIssues(validIssues);
 
-        if (!userLocation && validIssues.length > 0) {
+        if (!userLocationRef.current && validIssues.length > 0) {
           setMapCenter((currentCenter) => currentCenter ?? [validIssues[0].lat, validIssues[0].lng]);
         }
 
@@ -60,7 +62,7 @@ export default function useIssueMapData(pageSize = 100) {
     );
 
     return () => unsubscribe();
-  }, [pageSize, userLocation]);
+  }, [pageSize]);
 
   return {
     issues,

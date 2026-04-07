@@ -18,12 +18,12 @@ function createMarkerSVG(status) {
     </svg>
   `;
 
-  const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
-  const svgUrl = URL.createObjectURL(svgBlob);
+  const svgUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 
   return L.icon({
     iconUrl: svgUrl,
     iconSize: [32, 41],
+    iconAnchor: [16, 41],
     popupAnchor: [1, -34],
     className: 'custom-marker',
   });

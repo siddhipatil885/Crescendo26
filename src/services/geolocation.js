@@ -1,21 +1,5 @@
 export async function getCurrentLocation() {
   try {
-    if (window.Capacitor && window.Capacitor.isPluginAvailable('Geolocation')) {
-      try {
-        const { Geolocation } = window.Capacitor.Plugins;
-        const coordinates = await Geolocation.getCurrentPosition();
-
-        if (coordinates?.coords) {
-          return {
-            lat: coordinates.coords.latitude,
-            lng: coordinates.coords.longitude,
-          };
-        }
-      } catch (capacitorError) {
-        console.warn('Capacitor geolocation failed, falling back to browser geolocation:', capacitorError);
-      }
-    }
-
     return await new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         reject(new Error('Geolocation is not supported by this browser'));
@@ -24,9 +8,17 @@ export async function getCurrentLocation() {
 
       navigator.geolocation.getCurrentPosition(
         (position) => {
+          const { latitude, longitude } = position.coords;
+
+          // Validate that coordinates are finite numbers
+          if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+            reject(new Error('Invalid coordinates received from geolocation'));
+            return;
+          }
+
           resolve({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
+            lat: latitude,
+            lng: longitude,
           });
         },
         (error) => {

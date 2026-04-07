@@ -1,21 +1,29 @@
 import { Marker, Popup } from 'react-leaflet';
+import { useState } from 'react';
 import { getMarkerIcon } from '../../utils/markerIcons';
 
 export default function IssueMarker({ issue }) {
+  const [isImageBroken, setIsImageBroken] = useState(false);
+
   if (issue?.lat == null || issue?.lng == null) {
     return null;
   }
 
   const { id, lat, lng, category, description, status, beforeImageUrl } = issue;
-  const statusDisplay = status
-    ?.replace(/_/g, ' ')
-    ?.split(' ')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ') || 'Unknown';
+  const statusDisplay = status && typeof status === 'string'
+    ? status
+        .replace(/_/g, ' ')
+        .split(' ')
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+    : 'Unknown';
+
+  const handleImageError = () => {
+    setIsImageBroken(true);
+  };
 
   return (
     <Marker
-      key={id}
       position={[lat, lng]}
       icon={getMarkerIcon(status)}
       title={`${category} - ${statusDisplay}`}
@@ -70,11 +78,13 @@ export default function IssueMarker({ issue }) {
             </span>
           </div>
 
-          {beforeImageUrl && (
+          {beforeImageUrl && !isImageBroken && (
             <div style={{ marginTop: '12px' }}>
               <img
                 src={beforeImageUrl}
                 alt="Issue"
+                loading="lazy"
+                onError={handleImageError}
                 style={{
                   width: '100%',
                   height: '150px',
