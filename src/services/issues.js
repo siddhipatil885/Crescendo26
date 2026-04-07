@@ -1,13 +1,15 @@
 import { db } from "./firebase";
 import { 
   collection, 
-  addDoc, 
   getDocs, 
   getDoc,
   doc, 
+  setDoc,
   updateDoc,
   serverTimestamp,
   Timestamp,
+  increment,
+  arrayUnion,
   query,
   orderBy,
   limit,
@@ -15,26 +17,92 @@ import {
   startAfter,
   onSnapshot
 } from "firebase/firestore";
+import { saveToken } from "../utils/token";
+import { getDepartmentForCategory, ISSUE_STATUS, REPORT_SOURCES } from "../utils/constants";
 
 const ISSUES_COLLECTION = "issues";
+
+function toClientDate(value) {
+  if (!value) return null;
+  if (typeof value?.toDate === 'function') return value.toDate();
+  if (typeof value?.seconds === 'number') return new Date(value.seconds * 1000);
+  if (value instanceof Date) return value;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
 
 export const createIssue = async (issueData) => {
   try {
     const issuesRef = collection(db, ISSUES_COLLECTION);
+    const issueRef = doc(issuesRef);
     const createdAtClient = new Date();
     const deadlineClient = new Date(createdAtClient.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const claimToken = issueData.claimToken || crypto.randomUUID();
+    const category = issueData.category || 'Other';
+    const department = issueData.department || getDepartmentForCategory(category);
+    const photoUrl = issueData.photo_url || issueData.beforeImage || issueData.beforeImageUrl || null;
+    const storedDeadline = issueData.deadline || Timestamp.fromDate(deadlineClient);
+    const timeline = issueData.timeline || [
+      {
+        type: 'reported',
+        title: 'Complaint reported',
+        status: ISSUE_STATUS.OPEN,
+        note: issueData.description || issueData.ai_description || '',
+        source: issueData.report_source || REPORT_SOURCES.APP,
+        createdAt: createdAtClient.toISOString(),
+      },
+    ];
+
     const newIssue = {
-      ...issueData,
-      createdAt: serverTimestamp(),
-      deadline: issueData.deadline || Timestamp.fromDate(deadlineClient),
-      status: issueData.status || "Pending",
-      beforeImage: issueData.beforeImage || null,
+      claimToken,
+      category,
+      subcategory: issueData.subcategory || '',
+      issue_category: issueData.issue_category || issueData.category || '',
+      issue_subcategory: issueData.issue_subcategory || issueData.subcategory || '',
+      department,
+      description: issueData.description || issueData.ai_description || '',
+      ai_description: issueData.ai_description || issueData.description || '',
+      lat: issueData.lat ?? null,
+      lng: issueData.lng ?? null,
+      neighbourhood: issueData.neighbourhood || '',
+      location: issueData.location || '',
+      report_source: issueData.report_source || REPORT_SOURCES.APP,
+      photo_url: photoUrl,
+      beforeImage: photoUrl,
+      beforeImageUrl: photoUrl,
       afterImage: issueData.afterImage || null,
+      afterImageUrl: issueData.afterImage || null,
+      verified_by_citizen: false,
+      upvotes: 0,
       archived: false,
+      timeline,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      reported_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+      deadline: storedDeadline,
+      status: issueData.status || ISSUE_STATUS.OPEN,
+      ...(issueData.reporter_name && { reporter_name: issueData.reporter_name }),
+      ...(issueData.reporter_phone && { reporter_phone: issueData.reporter_phone }),
     };
     
-    const docRef = await addDoc(issuesRef, newIssue);
-    return { id: docRef.id, ...newIssue, createdAt: createdAtClient, deadline: deadlineClient };
+    await setDoc(issueRef, newIssue);
+
+    try {
+      saveToken(claimToken);
+    } catch (error) {
+      console.error('saveToken failed after issue creation:', error);
+    }
+
+    return {
+      id: issueRef.id,
+      ...newIssue,
+      createdAt: createdAtClient,
+      updatedAt: createdAtClient,
+      reported_at: createdAtClient,
+      updated_at: createdAtClient,
+      deadline: toClientDate(storedDeadline) || deadlineClient,
+    };
   } catch (error) {
     console.error("Error creating issue:", error);
     throw error;
@@ -81,14 +149,34 @@ export const getIssues = async (pageSize = 20, lastVisible = null) => {
 export const updateIssue = async (id, updates) => {
   try {
     const issueRef = doc(db, ISSUES_COLLECTION, id);
+    const nextTimelineEvent = updates.timelineEvent;
+    const { timelineEvent, id: ignoredId, ...restUpdates } = updates;
+
     await updateDoc(issueRef, {
-      ...updates,
-      updatedAt: serverTimestamp()
+      ...restUpdates,
+      updatedAt: serverTimestamp(),
+      updated_at: serverTimestamp(),
+      ...(nextTimelineEvent ? { timeline: arrayUnion(nextTimelineEvent) } : {}),
     });
     
-    return { id, ...updates };
+    return { id, ...restUpdates };
   } catch (error) {
     console.error(`Error updating issue ${id}:`, error);
+    throw error;
+  }
+};
+
+export const upvoteIssue = async (issueId) => {
+  try {
+    const issueRef = doc(db, ISSUES_COLLECTION, issueId);
+
+    await updateDoc(issueRef, {
+      upvotes: increment(1),
+      updatedAt: serverTimestamp(),
+      updated_at: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error(`upvoteIssue failed for issueId ${issueId}:`, error);
     throw error;
   }
 };

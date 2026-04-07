@@ -3,15 +3,21 @@ import MobileLayout from './components/MobileLayout';
 import Home from './pages/citizen/Home';
 import CaptureIssue from './pages/citizen/CaptureIssue';
 import ReportIssue from './pages/citizen/ReportIssue';
+import ReportConfirmation from './pages/citizen/ReportConfirmation';
 import IssueDetails from './pages/citizen/IssueDetails';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import Map from './pages/citizen/Map';
+import useIssueNotifications from './hooks/useIssueNotifications';
+import { trackIssue } from './utils/notifications';
 
 function App() {
+  useIssueNotifications();
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [subView, setSubView] = useState(null);
   const [reportStep, setReportStep] = useState('capture');
   const [draftImage, setDraftImage] = useState(null);
+  const [submittedIssue, setSubmittedIssue] = useState(null);
   const [selectedIssueId, setSelectedIssueId] = useState(null);
   const [isAdminMode, setIsAdminMode] = useState(false);
 
@@ -20,6 +26,7 @@ function App() {
     setSubView(null); // Reset subview on tab change
     if (tabId === 'report') {
       setReportStep('capture'); // Reset to capture step whenever entering report tab
+      setSubmittedIssue(null);
     }
   };
 
@@ -49,7 +56,28 @@ function App() {
       case 'report':
         return reportStep === 'capture' 
           ? <CaptureIssue onCapture={(imgUrl) => { setDraftImage(imgUrl); setReportStep('details'); }} />
-          : <ReportIssue draftImage={draftImage} onSubmit={() => handleTabChange('dashboard')} />;
+          : reportStep === 'details'
+            ? (
+              <ReportIssue
+                draftImage={draftImage}
+                onSubmit={(issue) => {
+                  setSubmittedIssue(issue);
+                  setSelectedIssueId(issue.id);
+                  setReportStep('confirmation');
+                }}
+              />
+            )
+            : (
+              <ReportConfirmation
+                issue={submittedIssue}
+                onTrackIssue={(issueId) => {
+                  trackIssue(issueId);
+                  setSelectedIssueId(issueId);
+                  setSubView('details');
+                  setActiveTab('dashboard');
+                }}
+              />
+            );
       case 'map':
         return <Map />;
       case 'profile':
@@ -77,19 +105,8 @@ function App() {
   };
 
   return (
-    <div style={{ backgroundColor: '#111827', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      {/* Mobile Frame Simulation (for desktop viewing) */}
-      <div style={{ 
-        width: '100%', 
-        maxWidth: '400px', 
-        height: '850px', 
-        maxHeight: '100vh',
-        backgroundColor: 'var(--bg-color)', 
-        overflow: 'hidden',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3)',
-        borderRadius: '30px', /* give it rounded corners for mobile feel on desktop */
-        position: 'relative'
-      }}>
+    <div className="app-shell">
+      <div className="mobile-frame">
         <MobileLayout activeTab={activeTab} onTabChange={handleTabChange}>
           {renderContent()}
         </MobileLayout>

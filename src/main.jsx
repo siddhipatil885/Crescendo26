@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth } from './services/firebase'
 import App from './App'
+import MobileLayout from './components/MobileLayout'
 import AuthFlow from './pages/auth/AuthFlow'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import './index.css'
@@ -48,27 +49,21 @@ function ProtectedRoute({ children }) {
 
 function AdminDashboardPage() {
   return (
-    <div style={{ backgroundColor: '#111827', minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-      <div style={{
-        width: '100%',
-        maxWidth: '400px',
-        height: '850px',
-        maxHeight: '100vh',
-        backgroundColor: 'var(--bg-color)',
-        overflow: 'hidden',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3)',
-        borderRadius: '30px',
-        position: 'relative'
-      }}>
-        <div className="mobile-container">
-          <header className="top-bar">
-            <div className="top-bar-logo">CIVIX</div>
-            <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#F97316', letterSpacing: '0.05em', backgroundColor: '#FFF7ED', padding: '4px 8px', borderRadius: '8px' }}>ADMIN</span>
-          </header>
-          <main className="content-area">
+    <div className="app-shell">
+      <div className="mobile-frame">
+        <MobileLayout
+          activeTab="dashboard"
+          onTabChange={() => {}}
+          showMenuButton={false}
+          showBottomNav={false}
+          headerRight={
+            <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#F97316', letterSpacing: '0.05em', backgroundColor: '#FFF7ED', padding: '4px 8px', borderRadius: '8px' }}>
+              ADMIN
+            </span>
+          }
+        >
             <AdminDashboard />
-          </main>
-        </div>
+        </MobileLayout>
       </div>
     </div>
   )
