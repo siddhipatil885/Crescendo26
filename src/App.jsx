@@ -41,7 +41,7 @@ function App() {
           : <Home onNavigate={handleNavigate} />;
       case 'report':
         return reportStep === 'capture' 
-          ? <CaptureIssue onAnalyze={(imgUrl) => { setDraftImage(imgUrl); setReportStep('analyze'); }} />
+          ? <CaptureIssue onCapture={(imgUrl) => { setDraftImage(imgUrl); setReportStep('details'); }} />
           : <ReportIssue draftImage={draftImage} onSubmit={() => handleTabChange('dashboard')} />;
       case 'map':
         return (

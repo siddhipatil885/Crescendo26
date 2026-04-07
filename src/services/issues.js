@@ -10,6 +10,7 @@ import {
   query,
   orderBy,
   limit,
+  where,
   startAfter,
   onSnapshot
 } from "firebase/firestore";
@@ -24,6 +25,7 @@ export const createIssue = async (issueData) => {
       ...issueData,
       createdAt: serverTimestamp(),
       status: issueData.status || "pending",
+      archived: false,
     };
     
     const docRef = await addDoc(issuesRef, newIssue);
@@ -116,7 +118,12 @@ export const getIssueById = async (id) => {
  */
 export const subscribeToIssues = (onData, onError, pageSize = 20) => {
   const issuesRef = collection(db, ISSUES_COLLECTION);
-  const q = query(issuesRef, orderBy("createdAt", "desc"), limit(pageSize));
+  const q = query(
+    issuesRef, 
+    where("archived", "==", false),
+    orderBy("createdAt", "desc"), 
+    limit(pageSize)
+  );
   
   return onSnapshot(q, 
     (snapshot) => {

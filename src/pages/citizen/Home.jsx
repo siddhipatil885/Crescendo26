@@ -1,25 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { MoreHorizontal, Clock, RefreshCw, CheckCircle2, MapPin, ListFilter } from 'lucide-react';
 import { subscribeToIssues } from '../../services/issues';
+import { timeAgo } from '../../utils/formatters';
 
-const timeAgo = (timestamp) => {
-  if (!timestamp) return '';
-  const date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return 'Just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-};
 
 const badgeClass = (status) => {
   switch (status?.toLowerCase()) {
     case 'pending': return 'badge badge-pending';
     case 'in_progress': case 'in progress': case 'review': return 'badge badge-review';
-    case 'resolved': case 'completed': return 'badge badge-resolved';
+    case 'resolved': case 'completed': case 'verified': return 'badge badge-resolved';
     default: return 'badge badge-pending';
   }
 };
@@ -47,7 +36,7 @@ export default function Home({ onNavigate }) {
 
   const pendingCount = useMemo(() => issues.filter(i => i.status?.toLowerCase() === 'pending').length, [issues]);
   const inProgressCount = useMemo(() => issues.filter(i => ['in_progress', 'in progress', 'review'].includes(i.status?.toLowerCase())).length, [issues]);
-  const resolvedCount = useMemo(() => issues.filter(i => ['resolved', 'completed'].includes(i.status?.toLowerCase())).length, [issues]);
+  const resolvedCount = useMemo(() => issues.filter(i => ['resolved', 'completed', 'verified'].includes(i.status?.toLowerCase())).length, [issues]);
 
   return (
     <div className="flex-col pb-6">

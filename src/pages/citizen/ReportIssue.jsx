@@ -44,32 +44,25 @@ export default function ReportIssue({ draftImage, onSubmit }) {
 
     setIsLocating(true);
     
-    // Add a 5 second timeout to geolocation
-    const timeoutId = setTimeout(() => {
-      if (isLocating) {
-        setDraft(prev => ({ ...prev, coords: 'Location timeout', address: 'Manual check required' }));
-        setIsLocating(false);
-      }
-    }, 5000);
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        clearTimeout(timeoutId);
         const { latitude, longitude } = position.coords;
+        const latHem = latitude >= 0 ? "N" : "S";
+        const lonHem = longitude >= 0 ? "E" : "W";
         setDraft(prev => ({
           ...prev,
           lat: latitude,
           lng: longitude,
-          coords: `${latitude.toFixed(4)}° N, ${longitude.toFixed(4)}° W`,
+          coords: `${Math.abs(latitude).toFixed(4)}° ${latHem}, ${Math.abs(longitude).toFixed(4)}° ${lonHem}`,
           address: 'Detected Vicinity',
           addressSecondary: 'Near current location'
         }));
         setIsLocating(false);
       },
       (error) => {
-        clearTimeout(timeoutId);
         console.error("Geolocation error:", error);
-        setDraft(prev => ({ ...prev, coords: 'Location denied', address: 'Please grant permission' }));
+        const errorMsg = error.code === 3 ? 'Location timeout' : 'Location denied';
+        setDraft(prev => ({ ...prev, coords: errorMsg, address: 'Please grant permission' }));
         setIsLocating(false);
       },
       { timeout: 5000, enableHighAccuracy: true }
@@ -139,16 +132,13 @@ export default function ReportIssue({ draftImage, onSubmit }) {
         />
       </div>
 
-      {/* AI Analysis / Category Selection */}
+      {/* Category Selection */}
       <div style={{ backgroundColor: 'white', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
         <div className="flex-row items-center justify-between mb-4">
           <div className="flex-row items-center gap-3">
-            <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Sparkles color="#7C8FF0" size={18} />
-            </div>
             <div>
               <div style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#7C8FF0', textTransform: 'uppercase' }}>CATEGORY</div>
-              <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Classified by AI</div>
+              <div style={{ fontSize: '0.8rem', color: '#6B7280' }}>Select the most relevant category</div>
             </div>
           </div>
         </div>

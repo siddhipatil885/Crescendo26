@@ -11,6 +11,9 @@ export default function IssueDetails({ issueId, isAdmin }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const verifyInputRef = useRef(null);
 
+  const IN_PROGRESS_STATUSES = ['in_progress', 'in progress', 'review', 'resolved', 'completed', 'verified'];
+  const RESOLVED_STATUSES = ['resolved', 'completed', 'verified'];
+
   useEffect(() => {
     if (!issueId) {
       setLoading(false);
@@ -167,8 +170,19 @@ export default function IssueDetails({ issueId, isAdmin }) {
           <div style={{ position: 'absolute', left: '16px', top: '24px', bottom: '24px', width: '2px', backgroundColor: '#E5E7EB', zIndex: 1 }}></div>
           
           <TimelineItem icon={<CheckCircle2 size={16} color="#047857" />} title="REPORTED" date={formatDate(issue.createdAt)} active={true} />
-          <TimelineItem icon={<UserCheck size={16} color={['in_progress','in progress','review','resolved','completed','verified'].includes(currentStatus) ? '#047857' : '#9CA3AF'} />} title="IN PROGRESS" date={['in_progress','in progress','review','resolved','completed','verified'].includes(currentStatus) ? 'Started' : 'Pending'} active={['in_progress','in progress','review','resolved','completed','verified'].includes(currentStatus) ? true : false} />
-          <TimelineItem icon={<CheckCircle2 size={16} color={['resolved','completed','verified'].includes(currentStatus) ? '#047857' : '#9CA3AF'} />} title="RESOLVED" date={['resolved','completed','verified'].includes(currentStatus) ? 'Done' : 'Pending'} active={['resolved','completed','verified'].includes(currentStatus) ? true : false} bg={['resolved','completed','verified'].includes(currentStatus) ? '#9EF0C2' : '#F3F4F6'} />
+          <TimelineItem 
+            icon={<UserCheck size={16} color={IN_PROGRESS_STATUSES.includes(currentStatus) ? '#047857' : '#9CA3AF'} />} 
+            title="IN PROGRESS" 
+            date={IN_PROGRESS_STATUSES.includes(currentStatus) ? 'Started' : 'Pending'} 
+            active={IN_PROGRESS_STATUSES.includes(currentStatus)} 
+          />
+          <TimelineItem 
+            icon={<CheckCircle2 size={16} color={RESOLVED_STATUSES.includes(currentStatus) ? '#047857' : '#9CA3AF'} />} 
+            title="RESOLVED" 
+            date={RESOLVED_STATUSES.includes(currentStatus) ? 'Done' : 'Pending'} 
+            active={RESOLVED_STATUSES.includes(currentStatus)} 
+            bg={RESOLVED_STATUSES.includes(currentStatus) ? '#9EF0C2' : '#F3F4F6'} 
+          />
         </div>
       </div>
 

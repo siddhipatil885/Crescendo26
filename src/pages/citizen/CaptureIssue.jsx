@@ -1,16 +1,30 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Image as ImageIcon, UploadCloud, X } from 'lucide-react';
 
-export default function CaptureIssue({ onAnalyze }) {
+export default function CaptureIssue({ onCapture }) {
   const [selectedImage, setSelectedImage] = useState(null);
   const [loading, setLoading] = useState(false);
   
   const cameraInputRef = useRef(null);
   const galleryInputRef = useRef(null);
 
+  // Cleanup object URL on unmount
+  useEffect(() => {
+    return () => {
+      if (selectedImage?.preview && selectedImage.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(selectedImage.preview);
+      }
+    };
+  }, [selectedImage]);
+
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (!file) return;
+
+    // Revoke old URL if it exists
+    if (selectedImage?.preview && selectedImage.preview.startsWith('blob:')) {
+      URL.revokeObjectURL(selectedImage.preview);
+    }
 
     const previewUrl = URL.createObjectURL(file);
     setSelectedImage({ file, preview: previewUrl });
@@ -31,7 +45,7 @@ export default function CaptureIssue({ onAnalyze }) {
         </h1>
         <p className="text-light text-sm mt-2" style={{ lineHeight: '1.4' }}>
           Help us improve your neighborhood.<br/>
-          Capture a photo and the AI will analyze it.
+          Capture a photo and provide report details.
         </p>
       </div>
 
@@ -123,7 +137,12 @@ export default function CaptureIssue({ onAnalyze }) {
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
             <button 
-              onClick={() => setSelectedImage(null)}
+              onClick={() => {
+                if (selectedImage?.preview && selectedImage.preview.startsWith('blob:')) {
+                  URL.revokeObjectURL(selectedImage.preview);
+                }
+                setSelectedImage(null);
+              }}
               disabled={loading}
               style={{ position: 'absolute', top: '12px', right: '12px', backgroundColor: 'rgba(0,0,0,0.6)', color: 'white', padding: '6px', borderRadius: '50%' }}
             >
@@ -132,7 +151,7 @@ export default function CaptureIssue({ onAnalyze }) {
           </div>
 
           <button 
-            onClick={() => onAnalyze(selectedImage)}
+            onClick={() => onCapture(selectedImage)}
             className="btn-primary" 
             style={{ backgroundColor: '#7C8FF0' }}
           >
