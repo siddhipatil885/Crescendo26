@@ -1,8 +1,9 @@
 // Import Firebase core
 import { initializeApp } from "firebase/app";
 
-// Import Firestore
+// Import Firestore and Storage
 import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 
 // Firebase config (using environment variables)
 const firebaseConfig = {
@@ -17,8 +18,9 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore
+// Initialize Firestore and Storage
 const db = getFirestore(app);
+const storage = getStorage(app);
 
-// Export database
-export { db };
+// Export database and storage
+export { db, storage };
