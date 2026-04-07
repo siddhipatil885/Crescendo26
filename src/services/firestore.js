@@ -68,6 +68,7 @@ export const submitReport = async ({ photo, category, aiDescription, location, n
     const photoUrl = await uploadToCloudinary(photo);
 
     await addDoc(collection(db, "issues"), {
+        tokenId: claimToken,
         photo_url: photoUrl,
         resolution_photo_url: null,
         verification_photo_url: null,

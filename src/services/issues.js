@@ -22,6 +22,13 @@ import { getDepartmentForCategory, ISSUE_STATUS, REPORT_SOURCES } from "../utils
 
 const ISSUES_COLLECTION = "issues";
 
+function mapIssueDoc(docSnapshot) {
+  return {
+    id: docSnapshot.id,
+    ...docSnapshot.data(),
+  };
+}
+
 function toClientDate(value) {
   if (!value) return null;
   if (typeof value?.toDate === 'function') return value.toDate();
@@ -55,6 +62,7 @@ export const createIssue = async (issueData) => {
 
     const newIssue = {
       claimToken,
+      tokenId: issueData.tokenId || claimToken,
       category,
       subcategory: issueData.subcategory || '',
       issue_type: issueData.issue_type || '',
@@ -258,4 +266,66 @@ export const subscribeToIssue = (id, onData, onError) => {
       if (onError) onError(error);
     }
   );
+};
+
+/**
+ * Real-time listener for finding an issue by either tokenId or claimToken.
+ * This keeps tracking compatible with both the old and new schema.
+ * @param {string} token - Reporter-facing token string
+ * @param {Function} onData - Callback with matching issues
+ * @param {Function} onError - Callback on error
+ * @returns {Function} Unsubscribe function
+ */
+export const subscribeToIssueByToken = (token, onData, onError) => {
+  const normalizedToken = String(token || '').trim();
+
+  if (!normalizedToken) {
+    onData?.([]);
+    return () => {};
+  }
+
+  const issuesRef = collection(db, ISSUES_COLLECTION);
+  const queryStates = {
+    claimToken: { ready: false, issues: [] },
+    tokenId: { ready: false, issues: [] },
+  };
+
+  const emitMergedIssues = () => {
+    if (!queryStates.claimToken.ready || !queryStates.tokenId.ready) {
+      return;
+    }
+
+    const mergedIssues = new Map();
+
+    [...queryStates.claimToken.issues, ...queryStates.tokenId.issues].forEach((issue) => {
+      mergedIssues.set(issue.id, issue);
+    });
+
+    onData?.(Array.from(mergedIssues.values()));
+  };
+
+  const createListener = (fieldName) =>
+    onSnapshot(
+      query(issuesRef, where(fieldName, "==", normalizedToken)),
+      (snapshot) => {
+        queryStates[fieldName] = {
+          ready: true,
+          issues: snapshot.docs.map(mapIssueDoc),
+        };
+        emitMergedIssues();
+      },
+      (error) => {
+        console.error(`Issue token listener error (${fieldName}:${normalizedToken}):`, error);
+        if (onError) onError(error);
+      }
+    );
+
+  const unsubscribers = [
+    createListener("claimToken"),
+    createListener("tokenId"),
+  ];
+
+  return () => {
+    unsubscribers.forEach((unsubscribe) => unsubscribe());
+  };
 };

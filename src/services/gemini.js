@@ -77,18 +77,20 @@ export async function analyzeIssueImage(file) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(errorText || 'Image analysis request failed.');
+      console.warn('Image analysis request returned a non-OK response:', response.status, errorText);
+      return FINAL_FALLBACK_RESULT;
     }
 
     const normalized = normalizeResult(await response.json());
 
     if (!normalized.issue_type || !normalized.category || !normalized.subcategory || !normalized.description || !normalized.severity) {
-      throw new Error('AI analysis returned an incomplete result. Please review the complaint details manually.');
+      console.warn('AI analysis returned an incomplete result. Leaving complaint details empty for manual entry.');
+      return FINAL_FALLBACK_RESULT;
     }
 
     return normalized;
   } catch (error) {
-    console.error('analyzeIssueImage failed:', error);
-    throw new Error(error?.message || 'Image analysis failed.');
+    console.warn('analyzeIssueImage failed. Leaving complaint details empty for manual entry.', error);
+    return FINAL_FALLBACK_RESULT;
   }
 }
