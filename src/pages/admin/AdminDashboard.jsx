@@ -398,7 +398,7 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h4 className="text-xl font-extrabold text-slate-900 tracking-tight">Officer Puneet</h4>
-              <p className="text-sm text-slate-500 font-medium mt-1 bg-slate-100 inline-block px-2.5 py-1 rounded-md">Public Works Department ΓÇó Ward C</p>
+              <p className="text-sm text-slate-500 font-medium mt-1 bg-slate-100 inline-block px-2.5 py-1 rounded-md">Public Works Department • Ward C</p>
               <p className="text-xs text-slate-400 mt-2 flex items-center"><Clock size={12} className="mr-1" /> Shift: 08:00 AM - 04:00 PM</p>
             </div>
           </div>
@@ -568,9 +568,9 @@ export default function AdminDashboard() {
                     disabled={isUpdating}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm cursor-pointer appearance-none"
                   >
-                    <option value="pending">ΓÜá∩╕Å Pending Validation</option>
-                    <option value="in_progress">≡ƒÜº Action In Progress</option>
-                    <option value="resolved">Γ£à Resolved & Closed</option>
+                    <option value="pending">⚠️ Pending Validation</option>
+                    <option value="in_progress">🚧 Action In Progress</option>
+                    <option value="resolved">✅ Resolved & Closed</option>
                   </select>
                 </div>
               </div>
