@@ -159,13 +159,9 @@ export default function ReportIssue({ draftImage, onSubmit }) {
 
       setSubmitStatus('Routing complaint...');
       setIsRoutingAI(true);
-      let routedDepartment = resolvedDraft.department;
       let routedPriority = undefined;
       try {
         const routing = await routeIssueText(resolvedDraft.description);
-        if (routing?.department) {
-          routedDepartment = routing.department;
-        }
         if (routing?.priority) {
           routedPriority = routing.priority;
         }
@@ -190,7 +186,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
         lng: resolvedDraft.lng,
         neighbourhood: resolvedDraft.neighbourhood,
         location: resolvedDraft.location,
-        department: routedDepartment,
+        department: resolvedDraft.department,
         ...(routedPriority ? { priority: routedPriority } : {}),
         photo_url: photoUrl,
         report_source: REPORT_SOURCES.APP,

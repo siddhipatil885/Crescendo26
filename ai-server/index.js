@@ -1031,11 +1031,33 @@ app.post("/route-issue", async (req, res) => {
     return res.status(400).json({ error: "Please provide text as a string." });
   }
 
+  const trimmedText = text.trim();
+  if (!trimmedText) {
+    return res.status(400).json({ error: "Please provide a non-empty text string." });
+  }
+
+  const MAX_ROUTE_TEXT_LENGTH = 500;
+  const MAX_ROUTE_TEXT_BYTES = 2000;
+  if (trimmedText.length > MAX_ROUTE_TEXT_LENGTH) {
+    return res.status(400).json({ error: `Text exceeds ${MAX_ROUTE_TEXT_LENGTH} characters.` });
+  }
+  if (Buffer.byteLength(trimmedText, "utf8") > MAX_ROUTE_TEXT_BYTES) {
+    return res.status(400).json({ error: "Text payload is too large." });
+  }
+
   try {
-    const result = await classifyText(text);
+    const result = await withTimeout(
+      classifyText(trimmedText),
+      15000,
+      "Routing timed out"
+    );
     return res.json(result);
   } catch (error) {
-    console.error("Routing failed.", error.message);
+    const message = error?.message || "Failed to route issue.";
+    if (message === "Routing timed out") {
+      return res.status(504).json({ error: "Routing timed out. Please try again." });
+    }
+    console.error("Routing failed.", message);
     return res.status(500).json({ error: "Failed to route issue." });
   }
 });
