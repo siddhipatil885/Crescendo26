@@ -437,67 +437,21 @@ const categories = useMemo(() => {
                 </div>
               )}
 
-<div className="space-y-6 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+              <div className="space-y-6 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Asset Category</h4>
+                  <p className="font-bold text-slate-900 text-sm bg-slate-100 inline-block px-3 py-1.5 rounded-lg border border-slate-200">{selectedIssue.category || 'Uncategorized'}</p>
+                </div>
 
-  {/* Status Badge */}
-  <div style={{ backgroundColor: badge.bg, padding: '0.6rem 1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: badge.color, letterSpacing: '0.05em' }}>
-      {badge.label}
-    </span>
+                <div className="pt-4 border-t border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Citizen Deposition</h4>
+                  <p className="text-slate-700 text-sm leading-relaxed bg-slate-50 border border-slate-100 p-4 rounded-xl overflow-wrap break-words whitespace-pre-wrap font-medium">{selectedIssue.description || selectedIssue.text || 'No textual description.'}</p>
+                </div>
+              </div>
 
-    {isResolvedStatus(currentStatus) ? (
-      <CheckCircle2 size={16} color={badge.color} />
-    ) : (
-      <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: badge.color }}></div>
-    )}
-  </div>
-
-  {/* Admin Action Buttons */}
-  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-    {isPendingStatus(currentStatus) && (
-      <button
-        onClick={() => handleStatusChange(issue.id, ISSUE_STATUS.IN_PROGRESS)}
-        style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', backgroundColor: '#1E3A8A', color: 'white', fontSize: '0.7rem', fontWeight: '600', border: 'none', cursor: 'pointer' }}
-      >
-        → In Progress
-      </button>
-    )}
-
-    {!isResolvedStatus(currentStatus) && (
-      <button
-        onClick={() => handleStatusChange(issue.id, ISSUE_STATUS.RESOLVED)}
-        style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', backgroundColor: '#047857', color: 'white', fontSize: '0.7rem', fontWeight: '600', border: 'none', cursor: 'pointer' }}
-      >
-        ✓ Resolve
-      </button>
-    )}
-  </div>
-
-  {/* Asset Category */}
-  <div>
-    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-      Asset Category
-    </h4>
-    <p className="font-bold text-slate-900 text-sm bg-slate-100 inline-block px-3 py-1.5 rounded-lg border border-slate-200">
-      {selectedIssue.category || 'Uncategorized'}
-    </p>
-  </div>
-
-  {/* Citizen Deposition */}
-  <div className="pt-4 border-t border-slate-100">
-    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-      Citizen Deposition
-    </h4>
-    <p className="text-slate-700 text-sm leading-relaxed bg-slate-50 border border-slate-100 p-4 rounded-xl overflow-wrap break-words whitespace-pre-wrap font-medium">
-      {selectedIssue.description || selectedIssue.text || 'No textual description.'}
-    </p>
-  </div>
-
-</div>
-
-                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Logged Timestamp</h4>
+              <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Logged Timestamp</h4>
                     <p className="text-slate-800 text-sm flex items-center font-bold"><Clock size={14} className="mr-2 text-slate-400" /> {timeAgo(selectedIssue.createdAt || selectedIssue.reported_at)}</p>
                   </div>
                   <div>
