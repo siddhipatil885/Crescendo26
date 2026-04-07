@@ -11,6 +11,7 @@ import { timeAgo } from '../../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../auth/AuthFlow';
 import MapView from '../../components/map/MapView';
+import ContractorCard from '../../components/admin/ContractorCard';
 
 const statusBadge = (status) => {
   const s = status?.toLowerCase();
@@ -745,6 +746,11 @@ export default function AdminDashboard() {
                 <div className="pt-4 border-t border-slate-100">
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Citizen Deposition</h4>
                   <p className="text-slate-700 text-sm leading-relaxed bg-slate-50 border border-slate-100 p-4 rounded-xl overflow-wrap break-words whitespace-pre-wrap font-medium">{selectedIssue.description || selectedIssue.text || 'No textual description.'}</p>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100">
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Contractor Details</h4>
+                  <ContractorCard contractorName={selectedIssue.contractor} />
                 </div>
 
                 <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
