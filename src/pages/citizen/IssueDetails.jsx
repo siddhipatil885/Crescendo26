@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle2, UserCheck, ShieldCheck, MapPin, Loader2, Camera } from 'lucide-react';
-import { subscribeToIssue, updateIssue } from '../../services/issues';
-import { uploadImage } from '../../services/storage';
+import { CheckCircle2, UserCheck, ShieldCheck, MapPin, Loader2, Camera, Bell, ArrowBigUp } from 'lucide-react';
+import { subscribeToIssue, updateIssue, upvoteIssue } from '../../services/issues';
+import { uploadToCloudinary } from '../../services/storage';
 import { computeEscalationStatus, formatCountdown, getIssueImage } from '../../utils/escalation';
+import { enableIssueNotifications, isTrackingIssue, trackIssue } from '../../utils/notifications';
+import { hasUpvoted, markUpvoted } from '../../utils/upvote';
 
 export default function IssueDetails({ issueId, isAdmin }) {
   const [issue, setIssue] = useState(null);
@@ -10,6 +12,8 @@ export default function IssueDetails({ issueId, isAdmin }) {
   const [error, setError] = useState(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isUpvoting, setIsUpvoting] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(() => isTrackingIssue(issueId));
   const [now, setNow] = useState(() => new Date());
   const [showRTI, setShowRTI] = useState(false);
   const verifyInputRef = useRef(null);
@@ -78,6 +82,29 @@ export default function IssueDetails({ issueId, isAdmin }) {
       case 'resolved': case 'completed': return 'badge badge-resolved';
       case 'verified': return 'badge badge-resolved';
       default: return 'badge badge-pending';
+    }
+  };
+
+  const handleTrackNotifications = async () => {
+    trackIssue(issueId);
+    const result = await enableIssueNotifications(issueId);
+    setNotificationsEnabled(result.enabled || isTrackingIssue(issueId));
+  };
+
+  const handleUpvote = async () => {
+    if (!issueId || hasUpvoted(issueId) || isUpvoting) {
+      return;
+    }
+
+    setIsUpvoting(true);
+
+    try {
+      await upvoteIssue(issueId);
+      markUpvoted(issueId);
+    } catch (error) {
+      console.error('Upvote failed:', error);
+    } finally {
+      setIsUpvoting(false);
     }
   };
 
@@ -291,7 +318,25 @@ export default function IssueDetails({ issueId, isAdmin }) {
           <span style={{ fontSize: '0.8rem', color: '#4B5563' }}>Location</span>
           <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1F2937' }}>{issue.lat ? `${issue.lat.toFixed(4)}, ${issue.lng.toFixed(4)}` : 'N/A'}</span>
         </div>
-        
+
+        <div className="flex-row gap-3 mb-3">
+          <button
+            onClick={handleUpvote}
+            disabled={isUpvoting || hasUpvoted(issueId)}
+            style={{ flex: 1, backgroundColor: '#FFF7ED', color: '#B45309', padding: '0.8rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', opacity: isUpvoting || hasUpvoted(issueId) ? 0.7 : 1 }}
+          >
+            <ArrowBigUp size={16} />
+            {hasUpvoted(issueId) ? `Upvoted (${issue.upvotes || 0})` : `Upvote (${issue.upvotes || 0})`}
+          </button>
+          <button
+            onClick={handleTrackNotifications}
+            style={{ flex: 1, backgroundColor: '#EEF2FF', color: '#4C5FD5', padding: '0.8rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+          >
+            <Bell size={16} />
+            {notificationsEnabled ? 'Tracking On' : 'Track Updates'}
+          </button>
+        </div>
+
         <button 
           onClick={handleShareResolution}
           style={{ backgroundColor: '#5C6BC0', color: 'white', width: '100%', padding: '0.8rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '600' }}

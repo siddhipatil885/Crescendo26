@@ -5,9 +5,12 @@ import {
   getDocs, 
   getDoc,
   doc, 
+  setDoc,
   updateDoc,
   serverTimestamp,
   Timestamp,
+  increment,
+  arrayUnion,
   query,
   orderBy,
   limit,
@@ -15,26 +18,77 @@ import {
   startAfter,
   onSnapshot
 } from "firebase/firestore";
+import { saveToken } from "../utils/token";
+import { getDepartmentForCategory, REPORT_SOURCES } from "../utils/constants";
 
 const ISSUES_COLLECTION = "issues";
 
 export const createIssue = async (issueData) => {
   try {
     const issuesRef = collection(db, ISSUES_COLLECTION);
+    const issueRef = doc(issuesRef);
     const createdAtClient = new Date();
     const deadlineClient = new Date(createdAtClient.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const claimToken = issueData.claimToken || crypto.randomUUID();
+    const category = issueData.category || 'Other';
+    const department = issueData.department || getDepartmentForCategory(category);
+    const photoUrl = issueData.photo_url || issueData.beforeImage || issueData.beforeImageUrl || null;
+    const timeline = issueData.timeline || [
+      {
+        type: 'reported',
+        title: 'Complaint reported',
+        status: 'open',
+        note: issueData.description || issueData.ai_description || '',
+        source: issueData.report_source || REPORT_SOURCES.APP,
+        createdAt: createdAtClient.toISOString(),
+      },
+    ];
+
     const newIssue = {
-      ...issueData,
-      createdAt: serverTimestamp(),
-      deadline: issueData.deadline || Timestamp.fromDate(deadlineClient),
-      status: issueData.status || "Pending",
-      beforeImage: issueData.beforeImage || null,
+      id: issueRef.id,
+      claimToken,
+      category,
+      subcategory: issueData.subcategory || '',
+      issue_category: issueData.issue_category || '',
+      issue_subcategory: issueData.issue_subcategory || issueData.subcategory || '',
+      department,
+      description: issueData.description || issueData.ai_description || '',
+      ai_description: issueData.ai_description || issueData.description || '',
+      lat: issueData.lat ?? null,
+      lng: issueData.lng ?? null,
+      neighbourhood: issueData.neighbourhood || '',
+      location: issueData.location || '',
+      report_source: issueData.report_source || REPORT_SOURCES.APP,
+      photo_url: photoUrl,
+      beforeImage: photoUrl,
+      beforeImageUrl: photoUrl,
       afterImage: issueData.afterImage || null,
+      afterImageUrl: issueData.afterImage || null,
+      verified_by_citizen: false,
+      upvotes: 0,
       archived: false,
+      timeline,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      reported_at: serverTimestamp(),
+      updated_at: serverTimestamp(),
+      deadline: issueData.deadline || Timestamp.fromDate(deadlineClient),
+      status: issueData.status || "open",
+      ...(issueData.reporter_name && { reporter_name: issueData.reporter_name }),
+      ...(issueData.reporter_phone && { reporter_phone: issueData.reporter_phone }),
     };
     
-    const docRef = await addDoc(issuesRef, newIssue);
-    return { id: docRef.id, ...newIssue, createdAt: createdAtClient, deadline: deadlineClient };
+    await setDoc(issueRef, newIssue);
+    saveToken(claimToken);
+
+    return {
+      ...newIssue,
+      createdAt: createdAtClient,
+      updatedAt: createdAtClient,
+      reported_at: createdAtClient,
+      updated_at: createdAtClient,
+      deadline: deadlineClient,
+    };
   } catch (error) {
     console.error("Error creating issue:", error);
     throw error;
@@ -81,16 +135,31 @@ export const getIssues = async (pageSize = 20, lastVisible = null) => {
 export const updateIssue = async (id, updates) => {
   try {
     const issueRef = doc(db, ISSUES_COLLECTION, id);
+    const nextTimelineEvent = updates.timelineEvent;
+    const { timelineEvent, ...restUpdates } = updates;
+
     await updateDoc(issueRef, {
-      ...updates,
-      updatedAt: serverTimestamp()
+      ...restUpdates,
+      updatedAt: serverTimestamp(),
+      updated_at: serverTimestamp(),
+      ...(nextTimelineEvent ? { timeline: arrayUnion(nextTimelineEvent) } : {}),
     });
     
-    return { id, ...updates };
+    return { id, ...restUpdates };
   } catch (error) {
     console.error(`Error updating issue ${id}:`, error);
     throw error;
   }
+};
+
+export const upvoteIssue = async (issueId) => {
+  const issueRef = doc(db, ISSUES_COLLECTION, issueId);
+
+  await updateDoc(issueRef, {
+    upvotes: increment(1),
+    updatedAt: serverTimestamp(),
+    updated_at: serverTimestamp(),
+  });
 };
 
 /**
