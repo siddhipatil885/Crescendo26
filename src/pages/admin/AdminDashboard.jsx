@@ -1,23 +1,45 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapPin, CheckCircle2, Clock, Loader2, LogOut } from 'lucide-react';
+import {
+  MapPin, CheckCircle2, Clock, Loader2, LogOut, Search, Filter,
+  LayoutDashboard, Map as MapIcon, FileText, Settings, X, ArrowRight, ShieldCheck,
+  BarChart3, ListTodo, Download, AlertTriangle, Users, Bell,
+  TrendingUp, ClipboardList, Zap, ArrowUpRight
+} from 'lucide-react';
 import { subscribeToIssues, updateIssue } from '../../services/issues';
 import { ISSUE_STATUS, isInProgressStatus, isPendingStatus, isResolvedStatus, statusEquals } from '../../utils/constants';
 import { timeAgo } from '../../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../auth/AuthFlow';
+import MapView from '../../components/map/MapView';
 
 const statusBadge = (status) => {
   const s = status?.toLowerCase();
-  if (isPendingStatus(s)) return { bg: '#FFE4B5', color: '#B45309', label: 'PENDING' };
-  if (isInProgressStatus(s)) return { bg: '#A8BAFA', color: '#1E3A8A', label: 'IN PROGRESS' };
-  if (isResolvedStatus(s)) return { bg: '#C6F6D5', color: '#047857', label: 'RESOLVED' };
-  return { bg: '#F3F4F6', color: '#6B7280', label: 'UNKNOWN' };
+if (isPendingStatus(s)) 
+  return { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Pending' };
+
+if (isInProgressStatus(s)) 
+  return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'In Progress' };
+
+if (isResolvedStatus(s)) 
+  return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Resolved' };
+
+return { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Unknown' };
 };
 
 export default function AdminDashboard() {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState('All');
+
+  const [selectedIssue, setSelectedIssue] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [selectedRowIds, setSelectedRowIds] = useState(new Set());
+
   const navigate = useNavigate();
   const { logout } = useAdminAuth();
 
@@ -31,41 +53,91 @@ export default function AdminDashboard() {
         setError(err.message);
         setLoading(false);
       },
-      50
+      500
     );
     return () => unsubscribe();
   }, []);
 
   const stats = useMemo(() => {
     const total = issues.length;
-    const pending = issues.filter(i => isPendingStatus(i.status)).length;
-    const inProgress = issues.filter(i => isInProgressStatus(i.status)).length;
+const stats = useMemo(() => {
+  const total = issues.length;
 
-    const today = new Date().setHours(0,0,0,0);
-    const resolvedToday = issues.filter(i => {
-      if (!isResolvedStatus(i.status)) return false;
-      const ts = i.updatedAt || i.updated_at;
-      const updatedDate = ts?.toDate ? ts.toDate().setHours(0,0,0,0) : null;
-      return updatedDate === today;
-    }).length;
+  const pending = issues.filter(i => isPendingStatus(i.status)).length;
+  const inProgress = issues.filter(i => isInProgressStatus(i.status)).length;
 
-    return { total, pending, inProgress, resolvedToday };
+  const today = new Date().setHours(0,0,0,0);
+
+  const resolvedToday = issues.filter(i => {
+    if (!isResolvedStatus(i.status)) return false;
+
+    const ts = i.updatedAt || i.updated_at;
+    const updatedDate = ts?.toDate ? ts.toDate().setHours(0,0,0,0) : null;
+
+    return updatedDate === today;
+  }).length;
+
+  return { total, pending, inProgress, resolvedToday };
+}, [issues]);
+
+const categories = useMemo(() => {
+  const cats = new Set(issues.map(i => i.category).filter(Boolean));
+  return ['All', ...Array.from(cats)];
+}, [issues]);
   }, [issues]);
 
-  const handleArchive = async (id) => {
-    try {
-      await updateIssue(id, { archived: true });
-      alert("Issue archived successfully.");
-    } catch (err) {
-      alert("Failed to archive: " + err.message);
-    }
-  };
+  const filteredIssues = useMemo(() => {
+    return issues.filter(issue => {
+      const matchSearch = issue.id?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        issue.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        issue.category?.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const statusLower = issue.status?.toLowerCase();
+      const matchStatus = statusFilter === 'All'
+        || (statusFilter === 'Pending' && ['pending', 'open'].includes(statusLower))
+        || (statusFilter === 'In Progress' && ['in_progress', 'in progress', 'review'].includes(statusLower))
+        || (statusFilter === 'Resolved' && ['resolved', 'completed', 'verified'].includes(statusLower));
+
+      const matchCategory = categoryFilter === 'All' || issue.category === categoryFilter;
+
+      return matchSearch && matchStatus && matchCategory;
+    });
+  }, [issues, searchQuery, statusFilter, categoryFilter]);
 
   const handleStatusChange = async (id, newStatus) => {
+    setIsUpdating(true);
     try {
       await updateIssue(id, { status: newStatus });
+      if (selectedIssue && selectedIssue.id === id) {
+        setSelectedIssue(prev => ({ ...prev, status: newStatus }));
+      }
     } catch (err) {
       alert("Update failed: " + err.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  const executeBulkStatus = async (status) => {
+    if (selectedRowIds.size === 0) return;
+    
+    const ids = Array.from(selectedRowIds);
+    const results = await Promise.allSettled(ids.map(id => updateIssue(id, { status })));
+    
+    const failed = [];
+    const newSet = new Set(selectedRowIds);
+    
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        failed.push(`ID ${ids[index]}: ${result.reason.message || result.reason}`);
+      } else {
+        newSet.delete(ids[index]);
+      }
+    });
+
+    setSelectedRowIds(newSet);
+
+    if (failed.length > 0) {
+      alert(`Bulk update completed with errors:\n${failed.join('\n')}`);
     }
   };
 
@@ -74,144 +146,372 @@ export default function AdminDashboard() {
     navigate('/admin/login');
   };
 
-  return (
-    <div className="flex-col pb-6">
-      {/* Header with Logout */}
-      <div className="mt-6 mb-6">
-        <div className="flex-row justify-between items-center mb-2">
-          <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1F2937' }}>
-            Issue Management
-          </h1>
-          <button
-            onClick={handleLogout}
-            style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: '600', color: '#6B7280', padding: '6px 10px', borderRadius: '8px', border: '1px solid #E5E7EB', backgroundColor: 'white' }}
-          >
-            <LogOut size={14} />
-            Logout
-          </button>
+  const mapCenter = useMemo(() => {
+    const withCoords = filteredIssues.filter(i => i.lat && i.lng);
+    if (withCoords.length === 0) return [19.0760, 72.8777];
+    const sumLat = withCoords.reduce((sum, i) => sum + i.lat, 0);
+    const sumLng = withCoords.reduce((sum, i) => sum + i.lng, 0);
+    return [sumLat / withCoords.length, sumLng / withCoords.length];
+  }, [filteredIssues]);
+
+  const toggleRowSelect = (id) => {
+    const newSet = new Set(selectedRowIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedRowIds(newSet);
+  };
+
+  /* ===================== RENDER MODULES ===================== */
+
+  const renderDashboard = () => (
+    <div className="space-y-6 fade-in">
+      {/* SaaS Metric Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
+              <ClipboardList size={20} />
+            </div>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Reports</span>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.total}</div>
+            <p className="text-xs text-emerald-600 mt-2 font-medium flex items-center">
+              <TrendingUp size={14} className="mr-1" /> +12% from last week
+            </p>
+          </div>
         </div>
-        <p className="text-light text-sm mt-2" style={{ lineHeight: '1.4' }}>
-          Review and update the status of citizen<br/>reports in real-time.
-        </p>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500 group-hover:scale-110 transition-transform">
+              <AlertTriangle size={20} />
+            </div>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Pending</span>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.pending}</div>
+            <p className="text-xs text-rose-500 mt-2 font-medium flex items-center">
+              <TrendingUp size={14} className="mr-1" /> Requires attention
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 group-hover:scale-110 transition-transform">
+              <Zap size={20} />
+            </div>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">In Progress</span>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.inProgress}</div>
+            <p className="text-xs text-slate-500 mt-2 font-medium flex items-center">
+              Active deployments
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 group-hover:scale-110 transition-transform">
+              <ShieldCheck size={20} />
+            </div>
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Resolved</span>
+          </div>
+          <div>
+            <div className="text-3xl font-extrabold text-slate-900 tracking-tight">{stats.resolved}</div>
+            <p className="text-xs text-emerald-600 mt-2 font-medium flex items-center">
+              <TrendingUp size={14} className="mr-1" /> +5% resolution rate
+            </p>
+          </div>
+        </div>
+
       </div>
 
-      {error && (
-        <div style={{ backgroundColor: '#FEF2F2', padding: '1rem', borderRadius: '12px', marginBottom: '1rem', color: '#991B1B', fontSize: '0.85rem' }}>
-          ⚠️ {error}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+          <h3 className="font-bold tracking-tight text-slate-900 mb-6 flex items-center text-lg">
+            Recent Activity Feed
+          </h3>
+          <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            {issues.slice(0, 10).map(issue => {
+              const bgBadge = statusBadge(issue.status);
+              return (
+                <div key={issue.id} className="flex gap-4 p-4 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors" onClick={() => setSelectedIssue(issue)}>
+                  <img src={issue.beforeImage || issue.beforeImageUrl || 'https://via.placeholder.com/60'} className="w-12 h-12 rounded-lg object-cover shadow-sm bg-slate-100" />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-bold tracking-tight text-slate-900 truncate">{issue.category}</h4>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">{issue.description || 'No description provided'}</p>
+                    <p className="text-[11px] text-slate-400 mt-1.5 font-medium flex items-center"><Clock size={12} className="mr-1" /> {timeAgo(issue.createdAt || issue.reported_at)}</p>
+                  </div>
+                  <div className="flex flex-col items-end justify-center">
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold tracking-wide ${bgBadge.bg} ${bgBadge.text}`}>
+                      {bgBadge.label}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="font-bold tracking-tight text-slate-900 flex items-center text-lg">
+              Category Breakdown
+            </h3>
+            <button className="text-xs font-semibold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg flex items-center hover:bg-indigo-100 transition-colors">
+              <Download size={14} className="mr-1.5" /> Export
+            </button>
+          </div>
+          <div className="flex-1 rounded-xl border border-slate-100 flex items-center justify-center bg-slate-50 p-8 min-h-[300px]">
+            <div className="w-full space-y-5">
+              {Object.entries(issues.reduce((acc, i) => { acc[i.category || 'Other'] = (acc[i.category || 'Other'] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cat, count]) => (
+                <div key={cat}>
+                  <div className="flex justify-between text-sm mb-1.5">
+                    <span className="font-semibold text-slate-700">{cat}</span>
+                    <span className="font-bold text-slate-900">{count} reports</span>
+                  </div>
+                  <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                    <div className="bg-indigo-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (count / issues.length) * 100)}%` }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderMap = () => (
+    <div className="h-[calc(100vh-140px)] w-full flex flex-col bg-slate-100 rounded-2xl shadow-sm border-4 border-white overflow-hidden fade-in relative isolate">
+      <div className="absolute top-6 left-6 z-[400] bg-white/90 backdrop-blur-md p-3.5 rounded-xl shadow-lg border border-slate-200/50 text-sm font-semibold text-slate-700 flex gap-4">
+        <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-rose-500 mr-2 shadow-sm"></div> Pending</span>
+        <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-amber-400 mr-2 shadow-sm"></div> In Progress</span>
+        <span className="flex items-center"><div className="w-3 h-3 rounded-full bg-emerald-500 mr-2 shadow-sm"></div> Resolved</span>
+      </div>
+      <MapView issues={filteredIssues} center={mapCenter} zoom={12} loading={loading} />
+    </div>
+  );
+
+  const renderIssues = () => (
+    <div className="flex flex-col h-[calc(100vh-140px)] bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden fade-in">
+      <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
+        <h3 className="font-bold tracking-tight text-slate-900 text-lg">Complaint Management <span className="text-sm font-medium text-slate-400 ml-2 py-0.5 px-2 bg-slate-100 rounded-md">{filteredIssues.length} total</span></h3>
+        {selectedRowIds.size > 0 && (
+          <div className="flex items-center gap-3 slide-in-right">
+            <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100">
+              {selectedRowIds.size} Selected
+            </span>
+            <button onClick={() => executeBulkStatus('in_progress')} className="text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 px-4 py-1.5 rounded-lg hover:bg-amber-100 transition shadow-sm">Mark In-Progress</button>
+            <button onClick={() => executeBulkStatus('resolved')} className="text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-1.5 rounded-lg hover:bg-emerald-100 transition shadow-sm">Mark Resolved</button>
+          </div>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        <table className="w-full text-left text-sm text-slate-600 relative border-collapse">
+          <thead className="text-xs text-slate-400 uppercase bg-slate-50/80 backdrop-blur-md sticky top-0 z-10">
+            <tr>
+              <th className="p-4 w-12 border-b border-slate-200">
+                <input type="checkbox" onChange={(e) => setSelectedRowIds(e.target.checked ? new Set(filteredIssues.map(i => i.id)) : new Set())} checked={selectedRowIds.size === filteredIssues.length && filteredIssues.length > 0} className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500" />
+              </th>
+              <th className="px-4 py-4 font-bold border-b border-slate-200">Media</th>
+              <th className="px-4 py-4 font-bold border-b border-slate-200">Incident Details</th>
+              <th className="px-4 py-4 font-bold border-b border-slate-200">Status & Verification</th>
+              <th className="px-4 py-4 font-bold border-b border-slate-200">Registered</th>
+              <th className="px-6 py-4 font-bold text-right border-b border-slate-200">Action</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {filteredIssues.map((issue) => {
+              const badge = statusBadge(issue.status);
+              return (
+                <tr key={issue.id} className="hover:bg-slate-50/80 transition-colors group">
+                  <td className="p-4">
+                    <input type="checkbox" checked={selectedRowIds.has(issue.id)} onChange={() => toggleRowSelect(issue.id)} className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer" />
+                  </td>
+                  <td className="px-4 py-4">
+                    <img src={issue.beforeImage || issue.beforeImageUrl || 'https://via.placeholder.com/150'} className="w-10 h-10 rounded-lg object-cover bg-slate-100 border border-slate-200 shadow-sm cursor-pointer group-hover:scale-105 transition-transform" onClick={() => setSelectedIssue(issue)} alt="Thumbnail" />
+                  </td>
+                  <td className="px-4 py-4 max-w-[300px] cursor-pointer" onClick={() => setSelectedIssue(issue)}>
+                    <div className="font-bold text-slate-900 mb-1 tracking-tight">{issue.category} <span className="font-mono text-[10px] text-slate-400 ml-2 font-normal bg-slate-100 px-1 py-0.5 rounded">#{issue.id?.slice(-5)}</span></div>
+                    <div className="text-xs text-slate-500 truncate leading-relaxed">{issue.description || 'No description'}</div>
+                    <div className="text-[11px] text-slate-400 mt-1.5 flex items-center font-medium"><MapPin size={12} className="mr-1" /> {issue.neighbourhood || 'Location Unknown'}</div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${badge.bg} ${badge.text}`}>
+                      {badge.label}
+                    </span>
+                    {issue.verified_by_citizen && (
+                      <span className="inline-flex mt-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 items-center whitespace-nowrap">
+                        <ShieldCheck size={10} className="mr-1" /> Citizen Verified
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-4 text-xs whitespace-nowrap text-slate-500">
+                    <div className="font-medium text-slate-700">{new Date(issue.createdAt || issue.reported_at).toLocaleDateString()}</div>
+                    <div className="text-[11px] mt-0.5">{timeAgo(issue.createdAt || issue.reported_at)}</div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <button className="text-indigo-600 hover:text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-600 transition shadow-sm border border-transparent hover:border-indigo-700" onClick={() => setSelectedIssue(issue)}>
+                      Update
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderAnalytics = () => (
+    <div className="space-y-6 fade-in">
+      <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-5xl">
+        <h3 className="font-bold tracking-tight text-slate-900 text-xl flex items-center mb-8">
+          <BarChart3 size={24} className="mr-2 text-indigo-600" /> Executive Analytics
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="border border-slate-100 rounded-2xl p-6 bg-slate-50 shadow-sm">
+            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Avg Resolution Time</h4>
+            <div className="text-4xl font-extrabold text-slate-900 tracking-tight">42 hrs</div>
+            <p className="text-sm text-emerald-600 mt-3 font-semibold flex items-center"><TrendingUp size={16} className="mr-1.5" /> 12% faster than last month</p>
+          </div>
+
+{issues.map(issue => {
+  const badge = statusBadge(issue.status);
+  const currentStatus = issue.status?.toLowerCase();
+
+  return (
+    <div
+      key={issue.id}
+      className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+    >
+      <div className="h-[140px] relative">
+        <img
+          src={
+            issue.beforeImage ||
+            issue.beforeImageUrl ||
+            "https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=500&h=300&fit=crop"
+          }
+          className="w-full h-full object-cover"
+          alt={issue.category}
+        />
+
+        {statusEquals(issue.status, ISSUE_STATUS.VERIFIED) && (
+          <div className="absolute top-3 right-3 bg-emerald-700 text-white px-2 py-1 rounded-md text-[0.6rem] font-bold">
+            VERIFIED
+          </div>
+        )}
+      </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-sm">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Operational Status</label>
+                <div className="relative">
+                  <select
+                    value={selectedIssue.status?.toLowerCase() || 'pending'}
+                    onChange={(e) => handleStatusChange(selectedIssue.id, e.target.value)}
+                    disabled={isUpdating}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm cursor-pointer appearance-none"
+                  >
+                    <option value="pending">⚠️ Pending Validation</option>
+                    <option value="in_progress">🚧 Action In Progress</option>
+                    <option value="resolved">✅ Resolved & Closed</option>
+                  </select>
+                </div>
+              </div>
+
+              {selectedIssue.verified_by_citizen && (
+                <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-5 mb-8 flex items-start shadow-sm">
+                  <div className="bg-emerald-100 p-2 rounded-xl mr-4 text-emerald-600 mt-0.5 border border-emerald-200 shadow-sm"><ShieldCheck size={20} /></div>
+                  <div>
+                    <h4 className="text-sm font-extrabold text-emerald-900 tracking-tight">Resolution Authenticated</h4>
+                    <p className="text-xs text-emerald-700 mt-1.5 font-medium leading-relaxed">Citizen successfully uploaded physical verification of the structural resolution.</p>
+                  </div>
+                </div>
+              )}
+
+<div className="space-y-6 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+
+  {/* Status Badge */}
+  <div style={{ backgroundColor: badge.bg, padding: '0.6rem 1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: badge.color, letterSpacing: '0.05em' }}>
+      {badge.label}
+    </span>
+
+    {isResolvedStatus(currentStatus) ? (
+      <CheckCircle2 size={16} color={badge.color} />
+    ) : (
+      <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: badge.color }}></div>
+    )}
+  </div>
+
+  {/* Admin Action Buttons */}
+  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+    {isPendingStatus(currentStatus) && (
+      <button
+        onClick={() => handleStatusChange(issue.id, ISSUE_STATUS.IN_PROGRESS)}
+        style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', backgroundColor: '#1E3A8A', color: 'white', fontSize: '0.7rem', fontWeight: '600', border: 'none', cursor: 'pointer' }}
+      >
+        → In Progress
+      </button>
+    )}
+
+    {!isResolvedStatus(currentStatus) && (
+      <button
+        onClick={() => handleStatusChange(issue.id, ISSUE_STATUS.RESOLVED)}
+        style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', backgroundColor: '#047857', color: 'white', fontSize: '0.7rem', fontWeight: '600', border: 'none', cursor: 'pointer' }}
+      >
+        ✓ Resolve
+      </button>
+    )}
+  </div>
+
+  {/* Asset Category */}
+  <div>
+    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+      Asset Category
+    </h4>
+    <p className="font-bold text-slate-900 text-sm bg-slate-100 inline-block px-3 py-1.5 rounded-lg border border-slate-200">
+      {selectedIssue.category || 'Uncategorized'}
+    </p>
+  </div>
+
+  {/* Citizen Deposition */}
+  <div className="pt-4 border-t border-slate-100">
+    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+      Citizen Deposition
+    </h4>
+    <p className="text-slate-700 text-sm leading-relaxed bg-slate-50 border border-slate-100 p-4 rounded-xl overflow-wrap break-words whitespace-pre-wrap font-medium">
+      {selectedIssue.description || selectedIssue.text || 'No textual description.'}
+    </p>
+  </div>
+
+</div>
+
+                <div className="grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Logged Timestamp</h4>
+                    <p className="text-slate-800 text-sm flex items-center font-bold"><Clock size={14} className="mr-2 text-slate-400" /> {timeAgo(selectedIssue.createdAt || selectedIssue.reported_at)}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Coordinates</h4>
+                    <p className="text-slate-800 text-sm flex items-center font-bold"><MapPin size={14} className="mr-2 text-slate-400" /> <span className="truncate">{selectedIssue.neighbourhood || 'Unknown Node'}</span></p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </>
       )}
 
-      {/* Stats */}
-      <div className="flex-col gap-4 mb-6">
-        <div style={{ backgroundColor: 'white', padding: '1.25rem', borderRadius: '16px', border: '1px solid #E5E7EB', boxShadow: '0 1px 2px rgba(0,0,0,0.02)' }}>
-          <div style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#6B7280', textTransform: 'uppercase', marginBottom: '0.5rem' }}>TOTAL REPORTS</div>
-          <div className="flex-row items-baseline gap-2">
-            <span style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1F2937' }}>{stats.total.toLocaleString()}</span>
-            <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#047857' }}>Live</span>
-          </div>
-        </div>
-
-        <div style={{ backgroundColor: '#FAF0E6', padding: '1.25rem', borderRadius: '16px' }}>
-          <div style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#92400E', textTransform: 'uppercase', marginBottom: '0.5rem' }}>PENDING REVIEW</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#92400E' }}>{stats.pending}</div>
-        </div>
-
-        <div style={{ backgroundColor: '#EEF2FF', padding: '1.25rem', borderRadius: '16px' }}>
-          <div style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#1E3A8A', textTransform: 'uppercase', marginBottom: '0.5rem' }}>IN PROGRESS</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1E3A8A' }}>{stats.inProgress}</div>
-        </div>
-
-        <div style={{ backgroundColor: '#DCFCE7', padding: '1.25rem', borderRadius: '16px' }}>
-          <div style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#065F46', textTransform: 'uppercase', marginBottom: '0.5rem' }}>RESOLVED (TODAY)</div>
-          <div style={{ fontSize: '1.75rem', fontWeight: '700', color: '#065F46' }}>{stats.resolvedToday}</div>
-        </div>
-      </div>
-
-      {/* Feed */}
-      <div className="flex-col gap-6">
-        {loading && (
-          <div className="flex-col items-center py-10">
-            <Loader2 size={32} className="animate-spin" color="#6B7280" />
-            <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: '#6B7280' }}>Loading live data...</p>
-          </div>
-        )}
-
-        {!loading && issues.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '2rem', background: 'white', borderRadius: '16px', color: '#6B7280', fontSize: '0.9rem' }}>
-            No reports found in the system.
-          </div>
-        )}
-
-        {issues.map(issue => {
-          const badge = statusBadge(issue.status);
-          const currentStatus = issue.status?.toLowerCase();
-          return (
-            <div key={issue.id} style={{ backgroundColor: 'white', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', border: '1px solid #E5E7EB' }}>
-              <div style={{ height: '140px', position: 'relative' }}>
-                <img src={issue.beforeImage || issue.beforeImageUrl || 'https://images.unsplash.com/photo-1515162816999-a0c47dc192f7?w=500&h=300&fit=crop'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={issue.category} />
-                {statusEquals(issue.status, ISSUE_STATUS.VERIFIED) && (
-                  <div style={{ position: 'absolute', top: '12px', right: '12px', backgroundColor: '#047857', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.6rem', fontWeight: '700' }}>VERIFIED</div>
-                )}
-              </div>
-              <div style={{ padding: '1.25rem' }}>
-                <div className="flex-row items-center gap-2 mb-2">
-                  <span style={{ fontSize: '0.65rem', fontWeight: '600', backgroundColor: '#F3F4F6', padding: '2px 6px', borderRadius: '4px', color: '#6B7280' }}>
-                    ID: #{issue.id?.slice(-4).toUpperCase()}
-                  </span>
-                  <span style={{ fontSize: '0.65rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Clock size={10} /> {timeAgo(issue.createdAt || issue.reported_at)}
-                  </span>
-                </div>
-                <h3 style={{ fontSize: '1rem', fontWeight: '600', marginBottom: '0.5rem', color: '#1F2937' }}>
-                  {issue.category || 'Uncategorized Report'}
-                </h3>
-                <p style={{ fontSize: '0.8rem', color: '#6B7280', marginBottom: '1rem', lineHeight: '1.5', display: '-webkit-box', WebkitLineClamp: '2', WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {issue.description || issue.text || 'No description provided.'}
-                </p>
-                <div className="flex-row items-center gap-1 mb-4">
-                  <MapPin size={12} color="#6B7280" />
-                  <span style={{ fontSize: '0.7rem', color: '#6B7280' }}>
-                    {issue.neighbourhood || (issue.lat ? `${issue.lat.toFixed(4)}, ${issue.lng.toFixed(4)}` : 'Location Unavailable')}
-                  </span>
-                </div>
-
-                <div style={{ backgroundColor: badge.bg, padding: '0.6rem 1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: '700', color: badge.color, letterSpacing: '0.05em' }}>{badge.label}</span>
-                  {isResolvedStatus(currentStatus) ? (
-                    <CheckCircle2 size={16} color={badge.color} />
-                  ) : (
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: badge.color }}></div>
-                  )}
-                </div>
-
-                {/* Admin Action Buttons */}
-                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                  {isPendingStatus(currentStatus) && (
-                    <button
-                      onClick={() => handleStatusChange(issue.id, ISSUE_STATUS.IN_PROGRESS)}
-                      style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', backgroundColor: '#1E3A8A', color: 'white', fontSize: '0.7rem', fontWeight: '600', border: 'none', cursor: 'pointer' }}
-                    >
-                      → In Progress
-                    </button>
-                  )}
-                  {!isResolvedStatus(currentStatus) && (
-                    <button
-                      onClick={() => handleStatusChange(issue.id, ISSUE_STATUS.RESOLVED)}
-                      style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', backgroundColor: '#047857', color: 'white', fontSize: '0.7rem', fontWeight: '600', border: 'none', cursor: 'pointer' }}
-                    >
-                      ✓ Resolve
-                    </button>
-                  )}
-                </div>
-
-                <div style={{ textAlign: 'center', display: 'flex', justifyContent: 'center', gap: '1.5rem' }}>
-                  <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', cursor: 'pointer' }} onClick={() => handleArchive(issue.id)} role="button">ARCHIVE</span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }

@@ -17,7 +17,10 @@ function ProtectedRoute({ children }) {
       if (u) {
         try {
           const tokenResult = await u.getIdTokenResult()
-          if (tokenResult.claims?.admin) {
+          const devAdminEmails = import.meta.env.VITE_DEV_ADMIN_EMAILS;
+          const isDevAdmin = devAdminEmails && devAdminEmails.split(',').includes(tokenResult.claims?.email || u.email);
+          
+          if (tokenResult.claims?.admin || isDevAdmin) {
             setUser(u)
           } else {
             setUser(null)
@@ -57,12 +60,22 @@ function AdminDashboardPage() {
           showMenuButton={false}
           showBottomNav={false}
           headerRight={
-            <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#F97316', letterSpacing: '0.05em', backgroundColor: '#FFF7ED', padding: '4px 8px', borderRadius: '8px' }}>
+            <span
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: '700',
+                color: '#F97316',
+                letterSpacing: '0.05em',
+                backgroundColor: '#FFF7ED',
+                padding: '4px 8px',
+                borderRadius: '8px'
+              }}
+            >
               ADMIN
             </span>
           }
         >
-            <AdminDashboard />
+          <AdminDashboard />
         </MobileLayout>
       </div>
     </div>
@@ -79,7 +92,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           path="/admin/dashboard" 
           element={
             <ProtectedRoute>
-              <AdminDashboardPage />
+              <AdminDashboard />
             </ProtectedRoute>
           } 
         />
