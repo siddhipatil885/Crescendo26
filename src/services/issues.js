@@ -3,22 +3,19 @@ import {
   collection, 
   addDoc, 
   getDocs, 
+  getDoc,
   doc, 
   updateDoc,
   serverTimestamp,
   query,
   orderBy,
   limit,
-  startAfter
+  startAfter,
+  onSnapshot
 } from "firebase/firestore";
 
 const ISSUES_COLLECTION = "issues";
 
-/**
- * Creates a new issue in Firestore
- * @param {Object} issueData - The data for the new issue
- * @returns {Promise<Object>} The created issue with its new ID
- */
 export const createIssue = async (issueData) => {
   try {
     const issuesRef = collection(db, ISSUES_COLLECTION);
@@ -87,4 +84,76 @@ export const updateIssue = async (id, updates) => {
     console.error(`Error updating issue ${id}:`, error);
     throw error;
   }
+};
+
+/**
+ * Fetches a single issue by its document ID
+ * @param {string} id - The Firestore document ID
+ * @returns {Promise<Object>} The issue data with its ID
+ */
+export const getIssueById = async (id) => {
+  try {
+    const issueRef = doc(db, ISSUES_COLLECTION, id);
+    const docSnap = await getDoc(issueRef);
+    
+    if (!docSnap.exists()) {
+      throw new Error("Issue not found");
+    }
+    
+    return { id: docSnap.id, ...docSnap.data() };
+  } catch (error) {
+    console.error(`Error fetching issue ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Real-time listener for the issues collection
+ * @param {Function} onData - Callback with array of issues
+ * @param {Function} onError - Callback on error
+ * @param {number} pageSize - Max issues to listen to
+ * @returns {Function} Unsubscribe function
+ */
+export const subscribeToIssues = (onData, onError, pageSize = 20) => {
+  const issuesRef = collection(db, ISSUES_COLLECTION);
+  const q = query(issuesRef, orderBy("createdAt", "desc"), limit(pageSize));
+  
+  return onSnapshot(q, 
+    (snapshot) => {
+      const issues = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      onData(issues);
+    },
+    (error) => {
+      console.error("Issues listener error:", error);
+      if (onError) onError(error);
+    }
+  );
+};
+
+/**
+ * Real-time listener for a single issue document
+ * @param {string} id - Firestore document ID
+ * @param {Function} onData - Callback with issue data
+ * @param {Function} onError - Callback on error
+ * @returns {Function} Unsubscribe function
+ */
+export const subscribeToIssue = (id, onData, onError) => {
+  const issueRef = doc(db, ISSUES_COLLECTION, id);
+  
+  return onSnapshot(issueRef,
+    (docSnap) => {
+      if (!docSnap.exists()) {
+        if (onError) onError(new Error("Issue not found"));
+        return;
+      }
+      onData({ id: docSnap.id, ...docSnap.data() });
+    },
+    (error) => {
+      console.error(`Issue listener error (${id}):`, error);
+      if (onError) onError(error);
+    }
+  );
 };
