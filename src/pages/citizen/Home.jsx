@@ -115,7 +115,7 @@ export default function Home({ onNavigate }) {
             EXPAND VIEW
           </button>
         </div>
-        <div style={{ width: '100%', height: '240px', overflow: 'hidden', borderRadius: '16px' }}>
+        <div style={{ width: '100%', height: '240px', overflow: 'hidden', borderRadius: '16px', position: 'relative', isolation: 'isolate', zIndex: 1 }}>
           <MapView
             issues={mapIssues}
             center={mapCenter}
