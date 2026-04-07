@@ -254,6 +254,11 @@ export default function IssueDetails({ issueId, isAdmin }) {
 
       {/* Before/After Images */}
       <div className="mb-6 flex-col gap-4">
+        {!beforeImage && !afterImage && (
+          <div style={{ backgroundColor: '#F3F4F6', borderRadius: '16px', padding: '1rem', color: '#6B7280', fontSize: '0.85rem' }}>
+            No before/after images available yet.
+          </div>
+        )}
         {/* Before */}
         {beforeImage && (
           <div style={{ backgroundColor: '#EEF2F6', borderRadius: '16px', overflow: 'hidden' }}>
@@ -390,9 +395,9 @@ export default function IssueDetails({ issueId, isAdmin }) {
       )}
 
       {/* Verify Resolution */}
-      {!isAdmin && statusEquals(currentStatus, ISSUE_STATUS.RESOLVED) && (
+      {isAdmin && statusEquals(currentStatus, ISSUE_STATUS.RESOLVED) && (
         <div style={{ backgroundColor: '#EFFFF4', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem' }}>
-          <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#047857', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>VERIFY RESOLUTION</div>
+          <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#047857', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>UPLOAD AFTER PHOTO</div>
           <p style={{ fontSize: '0.8rem', color: '#374151', marginBottom: '1rem', lineHeight: '1.4' }}>Upload an "after" photo to verify this issue has been resolved.</p>
           <input 
             type="file" 
@@ -407,8 +412,14 @@ export default function IssueDetails({ issueId, isAdmin }) {
             style={{ backgroundColor: '#047857', color: 'white', width: '100%', padding: '0.8rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '600', opacity: isVerifying ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
           >
             {isVerifying ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-            {isVerifying ? 'Uploading & Verifying...' : 'Upload After Photo & Verify'}
+            {isVerifying ? 'Uploading...' : 'Upload After Photo'}
           </button>
+        </div>
+      )}
+
+      {afterImage && (
+        <div style={{ backgroundColor: '#ECFDF3', padding: '0.9rem 1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid #D1FAE5', color: '#047857', fontSize: '0.8rem', fontWeight: '600' }}>
+          This issue has been resolved and verified.
         </div>
       )}
 
