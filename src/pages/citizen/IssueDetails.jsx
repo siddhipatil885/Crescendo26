@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, UserCheck, ShieldCheck, MapPin, Loader2, Camera } from 'lucide-react';
 import { subscribeToIssue, updateIssue } from '../../services/issues';
-import { uploadImage } from '../../services/storage';
+import { uploadToCloudinary } from '../../services/storage';
 
 export default function IssueDetails({ issueId, isAdmin }) {
   const [issue, setIssue] = useState(null);
@@ -77,7 +77,7 @@ export default function IssueDetails({ issueId, isAdmin }) {
 
     setIsVerifying(true);
     try {
-      const afterImageUrl = await uploadImage(file);
+      const afterImageUrl = await uploadToCloudinary(file);
       await updateIssue(issueId, {
         afterImageUrl,
         status: 'verified'

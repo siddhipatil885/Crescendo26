@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sparkles, Edit2, MapPin, RefreshCw, Send, Loader2 } from 'lucide-react';
-import { uploadImage } from '../../services/storage';
+import { uploadToCloudinary } from '../../services/storage';
 import { createIssue } from '../../services/issues';
 
 const CATEGORIES = [
@@ -81,7 +81,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
     try {
       let finalImageUrl = draft.imageUrl;
       if (draft.file) {
-        finalImageUrl = await uploadImage(draft.file);
+        finalImageUrl = await uploadToCloudinary(draft.file);
       }
       
       setSubmitStatus('Saving to database...');
