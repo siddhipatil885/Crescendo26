@@ -137,7 +137,17 @@ export default function AdminDashboard() {
   const executeBulkStatus = async (status) => {
     if (selectedRowIds.size === 0) return;
     
-    const ids = Array.from(selectedRowIds);
+    // Filter out issues that already have the target status
+    const ids = Array.from(selectedRowIds).filter(id => {
+      const issue = issues.find(i => i.id === id);
+      return issue && !statusEquals(issue.status, status);
+    });
+
+    if (ids.length === 0) {
+      setSelectedRowIds(new Set()); // Clear selection if nothing to update
+      return;
+    }
+
     const statusLabel = status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
     
     const results = await Promise.allSettled(ids.map(id => updateIssue(id, { 

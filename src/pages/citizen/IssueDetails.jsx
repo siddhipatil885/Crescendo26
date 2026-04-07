@@ -414,7 +414,7 @@ export default function IssueDetails({ issueId, isAdmin }) {
 
       {/* Map block */}
       <div style={{ height: '240px', backgroundColor: '#EEF2FF', borderRadius: '16px', position: 'relative', overflow: 'hidden' }}>
-        {issue.lat && issue.lng ? (
+        {issue.lat != null && issue.lng != null ? (
           <MapView
             issues={[issue]}
             center={[Number(issue.lat), Number(issue.lng)]}

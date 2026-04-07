@@ -14,10 +14,11 @@ import {
   resolveDateValue,
   selectNewestIssue,
 } from "../../utils/issueTracking";
+import { ISSUE_STATUS } from "../../utils/constants";
 
 const STATUS_STEPS = [
   {
-    key: "reported",
+    key: ISSUE_STATUS.REPORTED,
     label: "Reported",
     caption: "Complaint logged",
     background: "#FFE4B5",
@@ -414,7 +415,7 @@ export default function TrackIssueDetails() {
           Location
         </div>
         <div style={{ height: "200px", backgroundColor: "#EEF2FF", borderRadius: "12px", overflow: "hidden", position: "relative" }}>
-          {issue.lat && issue.lng ? (
+          {issue.lat != null && issue.lng != null ? (
             <MapView
               issues={[issue]}
               center={[issue.lat, issue.lng]}
@@ -527,8 +528,8 @@ function mapIssueDetails(data) {
       data.ai_description ??
       "No description was provided for this issue.",
     location: data.location ?? data.neighbourhood ?? "Location not provided",
-    lat: data.lat ? Number(data.lat) : null,
-    lng: data.lng ? Number(data.lng) : null,
+    lat: data.lat != null ? Number(data.lat) : null,
+    lng: data.lng != null ? Number(data.lng) : null,
     imageBefore:
       data.imageBefore ??
       data.beforeImage ??
@@ -547,13 +548,13 @@ function mapIssueDetails(data) {
 
 function normalizeStatus(status) {
   if (!status) {
-    return "reported";
+    return ISSUE_STATUS.REPORTED;
   }
 
   const normalizedStatus = String(status).trim().toLowerCase().replace(/\s+/g, "_");
 
   if (normalizedStatus === "open" || normalizedStatus === "pending") {
-    return "reported";
+    return ISSUE_STATUS.REPORTED;
   }
 
   if (normalizedStatus === "review") {
@@ -574,7 +575,7 @@ function formatStatusLabel(status) {
 }
 
 function getStatusBadgeClass(status) {
-  if (status === "reported") {
+  if (status === ISSUE_STATUS.REPORTED) {
     return "badge badge-pending";
   }
 
