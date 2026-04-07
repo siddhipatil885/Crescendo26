@@ -1,13 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Camera, Image as ImageIcon, UploadCloud, X } from 'lucide-react';
+import { uploadImage } from '../../services/storage';
 
 export default function CaptureIssue({ onAnalyze }) {
   const [selectedImage, setSelectedImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+  
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
 
-  const simulateCapture = () => {
-    // Just simulating a photo capture/selection with a default image for demo
-    setSelectedImage('https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=300&fit=crop');
+  const handleFileChange = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    setLoading(true);
+    try {
+      const uploadedUrl = await uploadImage(file);
+      setSelectedImage(uploadedUrl);
+    } catch (error) {
+      console.error(error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setLoading(false);
+      if (cameraInputRef.current) cameraInputRef.current.value = '';
+      if (galleryInputRef.current) galleryInputRef.current.value = '';
+    }
   };
+
+  const handleCameraCapture = () => cameraInputRef.current?.click();
+  const handleGallerySelect = () => galleryInputRef.current?.click();
 
   return (
     <div className="flex-col pb-6">
@@ -25,8 +46,26 @@ export default function CaptureIssue({ onAnalyze }) {
       {/* Upload/Capture Area */}
       {!selectedImage ? (
         <div className="flex-col gap-4">
+          {/* Hidden File Inputs */}
+          <input 
+            type="file" 
+            accept="image/*" 
+            capture="environment" 
+            ref={cameraInputRef} 
+            style={{ display: 'none' }} 
+            onChange={handleFileChange}
+          />
+          <input 
+            type="file" 
+            accept="image/*" 
+            ref={galleryInputRef} 
+            style={{ display: 'none' }} 
+            onChange={handleFileChange}
+          />
+
           <button 
-            onClick={simulateCapture}
+            onClick={handleCameraCapture}
+            disabled={loading}
             style={{ 
               width: '100%', 
               height: '240px', 
@@ -46,7 +85,9 @@ export default function CaptureIssue({ onAnalyze }) {
               <Camera size={32} color="#7C8FF0" />
             </div>
             <div className="flex-col items-center">
-              <span style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1F2937' }}>Take Photo</span>
+              <span style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1F2937' }}>
+                {loading ? 'Uploading...' : 'Take Photo'}
+              </span>
               <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>Open device camera</span>
             </div>
           </button>
@@ -58,7 +99,8 @@ export default function CaptureIssue({ onAnalyze }) {
           </div>
 
           <button 
-            onClick={simulateCapture}
+            onClick={handleGallerySelect}
+            disabled={loading}
             style={{ 
               width: '100%', 
               padding: '1.25rem', 
@@ -97,7 +139,7 @@ export default function CaptureIssue({ onAnalyze }) {
           </div>
 
           <button 
-            onClick={onAnalyze}
+            onClick={() => onAnalyze(selectedImage)}
             className="btn-primary" 
             style={{ backgroundColor: '#7C8FF0' }}
           >

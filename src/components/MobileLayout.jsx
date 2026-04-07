@@ -1,12 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Menu, LayoutDashboard, Map as MapIcon, PlusCircle, User } from 'lucide-react';
 
 export default function MobileLayout({ children, activeTab, onTabChange }) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   return (
     <div className="mobile-container">
       {/* Top Header */}
       <header className="top-bar">
-        <button className="menu-btn">
+        <button 
+          className="menu-btn"
+          aria-expanded={isMenuOpen}
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+        >
           <Menu size={24} color="#7C8FF0" />
         </button>
         <div className="top-bar-logo">
@@ -43,7 +48,7 @@ export default function MobileLayout({ children, activeTab, onTabChange }) {
         </button>
         
         <button 
-          className="nav-item-report"
+          className={`nav-item-report ${activeTab === 'report' ? 'active' : ''}`}
           onClick={() => onTabChange('report')}
         >
           <PlusCircle size={20} fill="#7C8FF0" color="white" />

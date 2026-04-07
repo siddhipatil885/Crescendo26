@@ -1,7 +1,10 @@
 import React from 'react';
-import { MapPin, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { MapPin, CheckCircle2 } from 'lucide-react';
 
 export default function AdminDashboard({ onNavigate }) {
+  const handleArchive = () => {
+    alert("Issue archived successfully.");
+  };
   return (
     <div className="flex-col pb-6">
       {/* Header */}
@@ -68,7 +71,7 @@ export default function AdminDashboard({ onNavigate }) {
             
             <div style={{ backgroundColor: '#FFE4B5', padding: '0.6rem 1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#B45309', letterSpacing: '0.05em' }}>PENDING</span>
-              <ChevronDown size={16} color="#B45309" />
+              <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#B45309' }}></div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#4B5563', letterSpacing: '0.05em', cursor: 'pointer' }} onClick={() => onNavigate('details')}>VIEW DETAILS</span>
@@ -97,7 +100,7 @@ export default function AdminDashboard({ onNavigate }) {
             
             <div style={{ backgroundColor: '#A8BAFA', padding: '0.6rem 1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1E3A8A', letterSpacing: '0.05em' }}>IN PROGRESS</span>
-              <ChevronDown size={16} color="#1E3A8A" />
+              <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#1E3A8A' }}></div>
             </div>
             <div style={{ textAlign: 'center' }}>
                <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#4B5563', letterSpacing: '0.05em', cursor: 'pointer' }} onClick={() => onNavigate('details')}>VIEW DETAILS</span>
@@ -129,7 +132,7 @@ export default function AdminDashboard({ onNavigate }) {
               <CheckCircle2 size={16} color="#047857" />
             </div>
             <div style={{ textAlign: 'center' }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#4B5563', letterSpacing: '0.05em', cursor: 'pointer' }}>ARCHIVE</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#4B5563', letterSpacing: '0.05em', cursor: 'pointer' }} onClick={handleArchive} role="button" tabIndex={0}>ARCHIVE</span>
             </div>
           </div>
         </div>

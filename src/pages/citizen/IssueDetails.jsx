@@ -2,6 +2,19 @@ import React from 'react';
 import { CheckCircle2, UserCheck, ShieldCheck, MapPin } from 'lucide-react';
 
 export default function IssueDetails() {
+  const handleShareResolution = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: 'CIVIX Resolution',
+        text: 'Check out this resolved neighborhood issue on CIVIX!',
+        url: window.location.href,
+      }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      alert('Link copied to clipboard!');
+    }
+  };
+
   return (
     <div className="flex-col pb-6">
       {/* Header */}
@@ -99,7 +112,10 @@ export default function IssueDetails() {
           <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1F2937' }}>12</span>
         </div>
         
-        <button style={{ backgroundColor: '#5C6BC0', color: 'white', width: '100%', padding: '0.8rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '600' }}>
+        <button 
+          onClick={handleShareResolution}
+          style={{ backgroundColor: '#5C6BC0', color: 'white', width: '100%', padding: '0.8rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: '600' }}
+        >
           Share Resolution
         </button>
       </div>

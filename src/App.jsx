@@ -10,6 +10,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [subView, setSubView] = useState(null); // Used to go "deeper" into e.g. 'details'
   const [reportStep, setReportStep] = useState('capture'); // Tracks if we are capturing or analyzing
+  const [draftImage, setDraftImage] = useState(null);
   const [isAdminMode, setIsAdminMode] = useState(false); // Quick toggle for demo
 
   const handleTabChange = (tabId) => {
@@ -38,8 +39,8 @@ function App() {
           : <Home onNavigate={handleNavigate} />;
       case 'report':
         return reportStep === 'capture' 
-          ? <CaptureIssue onAnalyze={() => setReportStep('analyze')} />
-          : <ReportIssue />;
+          ? <CaptureIssue onAnalyze={(imgUrl) => { setDraftImage(imgUrl); setReportStep('analyze'); }} />
+          : <ReportIssue draftImage={draftImage} onSubmit={() => handleTabChange('dashboard')} />;
       case 'map':
         return (
           <div className="flex-col items-center justify-center" style={{ height: '70vh', color: '#6B7280' }}>
@@ -53,13 +54,17 @@ function App() {
             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=EEF2FF" style={{ width: 100, height: 100, borderRadius: '50%', marginBottom: '1rem' }} />
             <h2 style={{ fontSize: '1.5rem', marginBottom: '2rem' }}>Civic Guardian</h2>
             
-            <button 
-              onClick={() => setIsAdminMode(!isAdminMode)}
-              style={{ backgroundColor: isAdminMode ? '#1F2937' : '#7C8FF0', color: 'white', padding: '1rem 2rem', borderRadius: '12px', fontWeight: 'bold' }}
-            >
-              Switch to {isAdminMode ? 'Citizen' : 'Admin'} View Mode
-            </button>
-            <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#6B7280' }}>(Demo Toggle)</p>
+            {import.meta.env.DEV && (
+              <>
+                <button 
+                  onClick={() => setIsAdminMode(!isAdminMode)}
+                  style={{ backgroundColor: isAdminMode ? '#1F2937' : '#7C8FF0', color: 'white', padding: '1rem 2rem', borderRadius: '12px', fontWeight: 'bold' }}
+                >
+                  Switch to {isAdminMode ? 'Citizen' : 'Admin'} View Mode
+                </button>
+                <p style={{ marginTop: '1rem', fontSize: '0.8rem', color: '#6B7280' }}>(Dev Toggle)</p>
+              </>
+            )}
           </div>
         );
       default:

@@ -5,7 +5,11 @@ import {
   getDocs, 
   doc, 
   updateDoc,
-  serverTimestamp
+  serverTimestamp,
+  query,
+  orderBy,
+  limit,
+  startAfter
 } from "firebase/firestore";
 
 const ISSUES_COLLECTION = "issues";
@@ -18,6 +22,7 @@ const ISSUES_COLLECTION = "issues";
 export const createIssue = async (issueData) => {
   try {
     const issuesRef = collection(db, ISSUES_COLLECTION);
+    const createdAtClient = new Date();
     const newIssue = {
       ...issueData,
       createdAt: serverTimestamp(),
@@ -25,7 +30,7 @@ export const createIssue = async (issueData) => {
     };
     
     const docRef = await addDoc(issuesRef, newIssue);
-    return { id: docRef.id, ...newIssue };
+    return { id: docRef.id, ...newIssue, createdAt: createdAtClient };
   } catch (error) {
     console.error("Error creating issue:", error);
     throw error;
@@ -33,20 +38,30 @@ export const createIssue = async (issueData) => {
 };
 
 /**
- * Retrieves all issues from Firestore
- * @returns {Promise<Array>} Array of issue objects
+ * Retrieves issues from Firestore with optional pagination
+ * @param {number} pageSize - Number of issues to fetch
+ * @param {Object} lastVisible - Optional cursor document to start after
+ * @returns {Promise<Object>} Object containing issues and nextCursor
  */
-export const getIssues = async () => {
+export const getIssues = async (pageSize = 20, lastVisible = null) => {
   try {
     const issuesRef = collection(db, ISSUES_COLLECTION);
-    const querySnapshot = await getDocs(issuesRef);
+    
+    let q = query(issuesRef, orderBy("createdAt", "desc"), limit(pageSize));
+    if (lastVisible) {
+      q = query(issuesRef, orderBy("createdAt", "desc"), startAfter(lastVisible), limit(pageSize));
+    }
+    
+    const querySnapshot = await getDocs(q);
     
     const issues = querySnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data()
     }));
     
-    return issues;
+    const nextCursor = querySnapshot.docs[querySnapshot.docs.length - 1];
+    
+    return { issues, nextCursor };
   } catch (error) {
     console.error("Error fetching issues:", error);
     throw error;

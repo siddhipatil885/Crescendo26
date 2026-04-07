@@ -1,5 +1,5 @@
 import React from 'react';
-import { MoreHorizontal, Clock, RefreshCw, CheckCircle2, MapPin } from 'lucide-react';
+import { MoreHorizontal, Clock, RefreshCw, CheckCircle2, MapPin, ListFilter } from 'lucide-react';
 
 export default function Home({ onNavigate }) {
   return (
@@ -105,7 +105,7 @@ export default function Home({ onNavigate }) {
           </div>
 
           {/* Activity Item 2 */}
-          <div style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1rem' }}>
+          <div onClick={() => onNavigate('details')} role="button" tabIndex={0} style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1rem', cursor: 'pointer' }}>
             <div style={{ width: '60px', height: '60px', borderRadius: '12px', backgroundColor: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                <div style={{width: '20px', height: '30px', background: 'linear-gradient(to bottom, #FFE4B5, #e67e22)', borderRadius: '4px'}}></div>
             </div>
@@ -124,12 +124,4 @@ export default function Home({ onNavigate }) {
   );
 }
 
-function ListFilter(props) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="3" x2="21" y1="6" y2="6"/>
-      <line x1="8" x2="16" y1="12" y2="12"/>
-      <line x1="11" x2="13" y1="18" y2="18"/>
-    </svg>
-  );
-}
+
