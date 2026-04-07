@@ -49,16 +49,31 @@ export async function analyzeIssueImage(file) {
 
   try {
     const imageBase64 = await toBase64(file);
-    const response = await fetch(AI_SERVER_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        imageBase64,
-        mimeType: file.type || 'image/jpeg',
-      }),
-    });
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    let response;
+    try {
+      response = await fetch(AI_SERVER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageBase64,
+          mimeType: file.type || 'image/jpeg',
+        }),
+        signal: controller.signal,
+      });
+    } catch (fetchError) {
+      if (fetchError.name === 'AbortError') {
+        throw new Error('Image analysis request timed out. Please try again.');
+      }
+      throw fetchError;
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     if (!response.ok) {
       const errorText = await response.text();

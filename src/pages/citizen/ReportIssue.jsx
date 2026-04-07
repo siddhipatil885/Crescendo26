@@ -45,6 +45,8 @@ export default function ReportIssue({ draftImage, onSubmit }) {
     aiCategory: '',
     subcategory: '',
     description: '',
+    issueType: '',
+    severity: '',
   });
   const [userDetails, setUserDetails] = useState(EMPTY_USER_DETAILS);
 
@@ -65,12 +67,12 @@ export default function ReportIssue({ draftImage, onSubmit }) {
       lng: autoData.lng,
       neighbourhood: overrides.neighbourhood || autoData.neighbourhood,
       location: overrides.location || autoData.location,
-      issueType: autoData.issueType,
+      issueType: overrides.issueType || autoData.issueType,
       aiCategory,
       subcategory,
       civixCategory,
       description: overrides.description || autoData.description,
-      severity: autoData.severity,
+      severity: overrides.severity || autoData.severity,
       department: getDepartmentForCategory(civixCategory),
     };
   }, [autoData, overrides]);
@@ -132,7 +134,6 @@ export default function ReportIssue({ draftImage, onSubmit }) {
           issueType: aiResult?.issue_type || '',
           aiCategory,
           subcategory,
-          civixCategory: getCivixCategoryFromAiClassification(aiCategory, subcategory),
           description: aiResult?.description || '',
           severity: aiResult?.severity || '',
         });
@@ -176,7 +177,6 @@ export default function ReportIssue({ draftImage, onSubmit }) {
         issueType: ai.issue_type || current.issueType,
         aiCategory: nextAiCategory,
         subcategory: nextSubcategory,
-        civixCategory: getCivixCategoryFromAiClassification(nextAiCategory, nextSubcategory),
         description: ai.description || current.description,
         severity: ai.severity || current.severity,
       }));
@@ -185,6 +185,8 @@ export default function ReportIssue({ draftImage, onSubmit }) {
         aiCategory: '',
         subcategory: '',
         description: '',
+        issueType: '',
+        severity: '',
       }));
     } catch (refreshError) {
       setError(refreshError.message || 'Failed to refresh AI analysis.');

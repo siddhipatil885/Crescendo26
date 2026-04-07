@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, MapPinned, Search, Copy, Check } from 'lucide-react';
+import { CheckCircle2, MapPinned, Search, Copy, Check, Tag } from 'lucide-react';
 
 export default function ReportConfirmation({ issue, onTrackIssue }) {
   const [copiedToken, setCopiedToken] = React.useState(false);
@@ -107,7 +107,7 @@ export default function ReportConfirmation({ issue, onTrackIssue }) {
         </div>
 
         <div className="flex-row items-center gap-3">
-          <Search size={18} color="#3147B0" />
+          <Tag size={18} color="#3147B0" />
           <div>
             <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>Subcategory</div>
             <div style={{ fontSize: '0.95rem', fontWeight: '600', color: '#1F2937' }}>{issue.subcategory || 'Not specified'}</div>

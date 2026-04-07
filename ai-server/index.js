@@ -4,6 +4,7 @@ const path = require("path");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const admin = require("firebase-admin");
 const rateLimit = require("express-rate-limit");
+const cors = require("cors");
 
 dotenv.config({ path: path.resolve(__dirname, ".env") });
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
@@ -630,6 +631,13 @@ function classifyCaption(caption) {
   return normalizeImageAnalysis(matchedRule.category, matchedRule.subcategory, caption, 0.65);
 }
 
+function withTimeout(promise, ms, message) {
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error(message)), ms)
+  );
+  return Promise.race([promise, timeoutPromise]);
+}
+
 async function analyzeImageWithGemini(imageBase64, mimeType) {
   if (!model) {
     throw new Error("Gemini image analysis is not configured.");
@@ -666,7 +674,7 @@ Allowed severity values:
 - MEDIUM
 - HIGH`;
 
-  const result = await model.generateContent([
+  const generatePromise = model.generateContent([
     prompt,
     {
       inlineData: {
@@ -675,6 +683,8 @@ Allowed severity values:
       },
     },
   ]);
+
+  const result = await withTimeout(generatePromise, 30000, "Gemini image analysis timed out");
 
   const parsed = safeParseJson(result.response.text());
   return normalizeCivicIssueAnalysis(parsed, [], 0.84);
@@ -733,20 +743,34 @@ async function analyzeImageWithHuggingFace(imageBase64, mimeType) {
     throw new Error("HuggingFace image analysis is not configured.");
   }
 
-  const response = await fetch(`https://router.huggingface.co/hf-inference/models/${huggingFaceModel}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${huggingFaceApiKey}`,
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      inputs: imageBase64,
-      parameters: {
-        top_k: 5,
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  let response;
+  try {
+    response = await fetch(`https://router.huggingface.co/hf-inference/models/${huggingFaceModel}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${huggingFaceApiKey}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
       },
-    }),
-  });
+      body: JSON.stringify({
+        inputs: imageBase64,
+        parameters: {
+          top_k: 5,
+        },
+      }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("HuggingFace image classification timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const errorText = await response.text();
@@ -979,17 +1003,20 @@ Complaint: "${text}"
 }
 
 const app = express();
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PATCH, OPTIONS");
 
-  if (req.method === "OPTIONS") {
-    return res.sendStatus(204);
-  }
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:5173', 'http://127.0.0.1:5173'];
 
-  next();
-});
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+}));
 
 app.use(express.json({ limit: "15mb" }));
 
@@ -1002,12 +1029,28 @@ protectedRoutes.use(authenticateToken);
 protectedRoutes.use(authorizeUser);
 protectedRoutes.use(requestLogger);
 
-app.post("/analyze-image", async (req, res) => {
+// Stricter rate limiting for AI image analysis
+const analyzeImageLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => req.user?.uid || req.ip,
+  message: { error: "Too many image analysis requests from this user, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post("/analyze-image", authenticateToken, analyzeImageLimiter, async (req, res) => {
   const imageBase64 = req.body?.imageBase64;
   const mimeType = req.body?.mimeType;
 
   if (!imageBase64 || typeof imageBase64 !== "string") {
     return res.status(400).json({ error: "Please provide imageBase64 as a string." });
+  }
+
+  // Strict payload size enforcement before expensive processing
+  // 10MB Base64 string = ~7.5MB raw image data
+  if (Buffer.byteLength(imageBase64, "utf8") > 11 * 1024 * 1024) {
+    return res.status(413).json({ error: "Image payload exceeds maximum allowed size." });
   }
 
   try {
