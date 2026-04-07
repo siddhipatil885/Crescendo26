@@ -1,4 +1,4 @@
-import { isResolvedStatus } from './constants';
+import { isResolvedStatus, isInProgressStatus, normalizeIssueStatus } from './constants';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -28,11 +28,15 @@ export function computeEscalationStatus(issue, now = new Date()) {
   if (isResolvedStatus(currentStatus)) {
     return 'Resolved';
   }
+  
+  if (isInProgressStatus(currentStatus)) {
+    return 'In Progress';
+  }
 
   const createdAt = getCreatedAt(issue);
   const deadline = getDeadline(issue);
   if (!createdAt && !deadline) {
-    return currentStatus ? normalizeStatus(currentStatus) : 'Pending';
+    return currentStatus ? normalizeIssueStatus(currentStatus) : 'Pending';
   }
 
   const base = createdAt || new Date(deadline.getTime() - 7 * MS_PER_DAY);
