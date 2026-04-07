@@ -42,7 +42,7 @@ export const useIssues = (filters = {}) => {
 
         const unsub = onSnapshot(q, (snap) => {
             setIssues(snap.docs.map((d) => {
-                const { claimToken, ...data } = d.data();
+                const { claimToken, tokenId, ...data } = d.data();
                 return { id: d.id, ...data };
             }));
             setLoading(false);

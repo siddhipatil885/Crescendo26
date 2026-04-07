@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import MobileLayout from './components/MobileLayout';
 import Home from './pages/citizen/Home';
 import CaptureIssue from './pages/citizen/CaptureIssue';
@@ -11,6 +12,7 @@ import { trackIssue } from './utils/notifications';
 
 function App() {
   useIssueNotifications();
+  const location = useLocation();
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [subView, setSubView] = useState(null);
@@ -19,13 +21,26 @@ function App() {
   const [submittedIssue, setSubmittedIssue] = useState(null);
   const [selectedIssueId, setSelectedIssueId] = useState(null);
 
-  const handleTabChange = (tabId) => {
+  const openTab = (tabId) => {
     setActiveTab(tabId);
-    setSubView(null); // Reset subview on tab change
+    setSubView(null);
+
     if (tabId === 'report') {
-      setReportStep('capture'); // Reset to capture step whenever entering report tab
+      setReportStep('capture');
       setSubmittedIssue(null);
     }
+  };
+
+  useEffect(() => {
+    const requestedTab = location.state?.activeTab;
+
+    if (requestedTab) {
+      openTab(requestedTab);
+    }
+  }, [location.state?.activeTab]);
+
+  const handleTabChange = (tabId) => {
+    openTab(tabId);
   };
 
   const handleNavigate = (viewId, issueId) => {
