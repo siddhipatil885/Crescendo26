@@ -9,16 +9,24 @@ import { getThumbnailUrl } from "../../services/storage";
 // ─────────────────────────────────────────────
 
 export const StatusBadge = ({ status }) => {
-    const map = {
-        open: "bg-red-500/20 text-red-400 border-red-500/30",
-        in_progress: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-        resolved: "bg-green-500/20 text-green-400 border-green-500/30",
-    };
-    const labels = { open: "Open", in_progress: "In Progress", resolved: "Resolved" };
+    const s = String(status).toLowerCase();
+    const isPending = ['pending', 'open'].includes(s);
+    const isInProgress = ['in_progress', 'in progress', 'review'].includes(s);
+    
+    let colorClass = "bg-green-500/20 text-green-400 border-green-500/30";
+    let label = "Resolved";
+    
+    if (isPending) {
+        colorClass = "bg-red-500/20 text-red-400 border-red-500/30";
+        label = "Pending";
+    } else if (isInProgress) {
+        colorClass = "bg-yellow-500/20 text-yellow-400 border-yellow-500/30";
+        label = "In Progress";
+    }
 
     return (
-        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${map[status]}`}>
-            {labels[status]}
+        <span className={`text-xs font-medium px-2 py-0.5 rounded-full border ${colorClass}`}>
+            {label}
         </span>
     );
 };
