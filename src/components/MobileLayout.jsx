@@ -25,7 +25,7 @@ export default function MobileLayout({ children, activeTab, onTabChange }) {
       </header>
 
       {/* Main Scrollable Content */}
-      <main className="content-area">
+      <main className={`content-area ${activeTab === 'map' ? 'content-area-map' : ''}`}>
         {children}
       </main>
 

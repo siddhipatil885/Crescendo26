@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { MoreHorizontal, Clock, RefreshCw, CheckCircle2, MapPin, ListFilter } from 'lucide-react';
 import { subscribeToIssues } from '../../services/issues';
 import { timeAgo } from '../../utils/formatters';
+import MapView from '../../components/map/MapView';
+import useIssueMapData from '../../hooks/useIssueMapData';
 
 
 const badgeClass = (status) => {
@@ -17,6 +19,14 @@ export default function Home({ onNavigate }) {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const {
+    issues: mapIssues,
+    loading: mapLoading,
+    error: mapError,
+    mapCenter,
+    locationError,
+    userLocation,
+  } = useIssueMapData();
 
   useEffect(() => {
     const unsubscribe = subscribeToIssues(
@@ -37,17 +47,26 @@ export default function Home({ onNavigate }) {
   const pendingCount = useMemo(() => issues.filter(i => i.status?.toLowerCase() === 'pending').length, [issues]);
   const inProgressCount = useMemo(() => issues.filter(i => ['in_progress', 'in progress', 'review'].includes(i.status?.toLowerCase())).length, [issues]);
   const resolvedCount = useMemo(() => issues.filter(i => ['resolved', 'completed', 'verified'].includes(i.status?.toLowerCase())).length, [issues]);
+  const resolutionRate = useMemo(() => {
+    if (issues.length === 0) {
+      return null;
+    }
+
+    return Math.round((resolvedCount / issues.length) * 100);
+  }, [issues.length, resolvedCount]);
 
   return (
     <div className="flex-col pb-6">
       {/* Header section */}
       <div className="mt-6">
         <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1F2937', marginBottom: '0.25rem' }}>
-          Welcome back,<br/>
-          <span style={{ color: '#7C8FF0' }}>Civic Guardian.</span>
+          Neighborhood<br/>
+          <span style={{ color: '#7C8FF0' }}>Issue Dashboard.</span>
         </h1>
         <p className="text-light text-sm" style={{ marginTop: '0.5rem', lineHeight: '1.4' }}>
-          Your neighborhood is 82% resolved<br/>this month. Keep it up!
+          {resolutionRate === null
+            ? 'Live updates will appear here as reports come in.'
+            : `${resolutionRate}% of tracked issues are resolved right now.`}
         </p>
       </div>
 
@@ -60,7 +79,7 @@ export default function Home({ onNavigate }) {
             <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#B45309', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>STATUS</span>
           </div>
           <div style={{ fontSize: '2rem', fontWeight: '700', color: '#B45309', marginBottom: '2px' }}>{String(pendingCount).padStart(2, '0')}</div>
-          <div style={{ fontSize: '0.8rem', color: '#B45309' }}>Pending Issues</div>
+          <div style={{ fontSize: '0.8rem', color: '#B45309' }}>Pending Reports</div>
         </div>
 
         {/* Under Review Card */}
@@ -70,7 +89,7 @@ export default function Home({ onNavigate }) {
             <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#1E3A8A', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>IN PROGRESS</span>
           </div>
           <div style={{ fontSize: '2rem', fontWeight: '700', color: '#1E3A8A', marginBottom: '2px' }}>{String(inProgressCount).padStart(2, '0')}</div>
-          <div style={{ fontSize: '0.8rem', color: '#1E3A8A' }}>Under Review</div>
+          <div style={{ fontSize: '0.8rem', color: '#1E3A8A' }}>Active Reviews</div>
         </div>
 
         {/* Completed Card */}
@@ -80,7 +99,7 @@ export default function Home({ onNavigate }) {
             <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#047857', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>COMPLETED</span>
           </div>
           <div style={{ fontSize: '2rem', fontWeight: '700', color: '#047857', marginBottom: '2px' }}>{String(resolvedCount).padStart(2, '0')}</div>
-          <div style={{ fontSize: '0.8rem', color: '#047857' }}>Resolved This Year</div>
+          <div style={{ fontSize: '0.8rem', color: '#047857' }}>Resolved Issues</div>
         </div>
       </div>
 
@@ -88,34 +107,26 @@ export default function Home({ onNavigate }) {
       <div className="mt-8">
         <div className="flex-row justify-between items-center mb-4">
           <h2 style={{ fontSize: '1.1rem', fontWeight: '600' }}>Active Heatmap</h2>
-          <span style={{ fontSize: '0.7rem', fontWeight: '700', color: '#7C8FF0', letterSpacing: '0.05em' }}>EXPAND VIEW</span>
+          <button
+            type="button"
+            onClick={() => onNavigate('map')}
+            style={{ fontSize: '0.7rem', fontWeight: '700', color: '#7C8FF0', letterSpacing: '0.05em' }}
+          >
+            EXPAND VIEW
+          </button>
         </div>
-        <div style={{ 
-          width: '100%', 
-          height: '240px', 
-          backgroundColor: '#E5E7EB', 
-          borderRadius: '16px',
-          backgroundImage: 'radial-gradient(#D1D5DB 1px, transparent 1px)',
-          backgroundSize: '20px 20px',
-          position: 'relative',
-          overflow: 'hidden'
-        }}>
-          {/* Map placeholder elements */}
-          <div style={{ position: 'absolute', top: '40%', left: '30%' }}>
-            <MapPin fill="#FFE4B5" color="#B45309" size={28} />
-          </div>
-          <div style={{ position: 'absolute', top: '60%', left: '55%' }}>
-            <MapPin fill="#BBC6FF" color="#1E3A8A" size={28} />
-          </div>
-          <div style={{ position: 'absolute', top: '65%', left: '70%' }}>
-            <MapPin fill="#9EF0C2" color="#047857" size={28} />
-          </div>
-
-          <div style={{ position: 'absolute', bottom: '16px', left: '16px', right: '16px', backgroundColor: 'rgba(255,255,255,0.9)', padding: '8px', borderRadius: '20px', display: 'flex', justifyContent: 'center', gap: '12px', fontSize: '0.6rem', fontWeight: '600', color: '#4B5563' }}>
-            <span className="flex-row items-center gap-2"><div style={{width: 8, height: 8, borderRadius: '50%', background: '#FFE4B5'}}></div> UNRESOLVED</span>
-            <span className="flex-row items-center gap-2"><div style={{width: 8, height: 8, borderRadius: '50%', background: '#BBC6FF'}}></div> ACTIVE</span>
-            <span className="flex-row items-center gap-2"><div style={{width: 8, height: 8, borderRadius: '50%', background: '#9EF0C2'}}></div> RESOLVED</span>
-          </div>
+        <div style={{ width: '100%', height: '240px', overflow: 'hidden', borderRadius: '16px' }}>
+          <MapView
+            issues={mapIssues}
+            center={mapCenter}
+            zoom={13}
+            loading={mapLoading}
+            error={mapError}
+            locationError={locationError}
+            userLocation={userLocation}
+            variant="compact"
+            onExpand={() => onNavigate('map')}
+          />
         </div>
       </div>
 
@@ -154,5 +165,3 @@ export default function Home({ onNavigate }) {
     </div>
   );
 }
-
-
