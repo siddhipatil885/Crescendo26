@@ -114,7 +114,17 @@ export default function AdminDashboard() {
   const handleStatusChange = async (id, newStatus) => {
     setIsUpdating(true);
     try {
-      await updateIssue(id, { status: newStatus });
+      const statusLabel = newStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      await updateIssue(id, { 
+        status: newStatus,
+        timelineEvent: {
+          type: 'status_update',
+          title: `Status updated to ${statusLabel}`,
+          status: newStatus,
+          note: `Operational status marked as ${statusLabel}`,
+          createdAt: new Date().toISOString()
+        }
+      });
       if (selectedIssue && selectedIssue.id === id) {
         setSelectedIssue(prev => ({ ...prev, status: newStatus }));
       }
@@ -128,7 +138,18 @@ export default function AdminDashboard() {
     if (selectedRowIds.size === 0) return;
     
     const ids = Array.from(selectedRowIds);
-    const results = await Promise.allSettled(ids.map(id => updateIssue(id, { status })));
+    const statusLabel = status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    
+    const results = await Promise.allSettled(ids.map(id => updateIssue(id, { 
+      status, 
+      timelineEvent: {
+        type: 'status_update',
+        title: `Status updated to ${statusLabel}`,
+        status: status,
+        note: `Operational status bulk-marked as ${statusLabel}`,
+        createdAt: new Date().toISOString()
+      }
+    })));
     
     const failed = [];
     const newSet = new Set(selectedRowIds);

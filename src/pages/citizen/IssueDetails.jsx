@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, UserCheck, ShieldCheck, MapPin, Loader2, Camera, Bell, ArrowBigUp } from 'lucide-react';
+import MapView from '../../components/map/MapView';
 import { subscribeToIssue, updateIssue, upvoteIssue } from '../../services/issues';
 import { uploadToCloudinary } from '../../services/storage';
 import { computeEscalationStatus, formatCountdown, getIssueImage } from '../../utils/escalation';
@@ -412,12 +413,20 @@ export default function IssueDetails({ issueId, isAdmin }) {
       )}
 
       {/* Map block */}
-      <div style={{ height: '180px', backgroundColor: '#CDD0D6', borderRadius: '16px', position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ position: 'absolute', bottom: '12px', left: '12px', right: '12px', backgroundColor: 'rgba(255,255,255,0.9)', padding: '0.75rem 1rem', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: '600' }}>{issue.category || 'Issue Location'}</span>
-          <span style={{ fontSize: '0.7rem', color: '#6B7280' }}>{issue.lat ? `${issue.lat.toFixed(2)}, ${issue.lng.toFixed(2)}` : ''}</span>
-        </div>
-        <MapPin size={48} fill="#7C8FF0" color="white" style={{ marginBottom: '40px' }} />
+      <div style={{ height: '240px', backgroundColor: '#EEF2FF', borderRadius: '16px', position: 'relative', overflow: 'hidden' }}>
+        {issue.lat && issue.lng ? (
+          <MapView
+            issues={[issue]}
+            center={[Number(issue.lat), Number(issue.lng)]}
+            zoom={14}
+            variant="compact"
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#6B7280' }}>
+            <MapPin size={32} color="#7C8FF0" style={{ marginBottom: '8px' }} />
+            <span style={{ fontSize: '0.85rem' }}>Location unavailable</span>
+          </div>
+        )}
       </div>
     </div>
   );

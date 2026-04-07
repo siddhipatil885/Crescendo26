@@ -3,17 +3,18 @@ import { subscribeToIssues } from '../services/issues';
 import { getCurrentLocation } from '../services/geolocation';
 
 function hasValidCoordinates(issue) {
+  const lat = issue?.lat != null ? Number(issue.lat) : null;
+  const lng = issue?.lng != null ? Number(issue.lng) : null;
+
   return (
-    issue?.lat !== null &&
-    issue?.lat !== undefined &&
-    issue?.lng !== null &&
-    issue?.lng !== undefined &&
-    typeof issue.lat === 'number' &&
-    typeof issue.lng === 'number' &&
-    issue.lat >= -90 &&
-    issue.lat <= 90 &&
-    issue.lng >= -180 &&
-    issue.lng <= 180
+    lat !== null &&
+    !isNaN(lat) &&
+    lng !== null &&
+    !isNaN(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
   );
 }
 

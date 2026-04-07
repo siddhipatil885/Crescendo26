@@ -7,6 +7,7 @@ import {
   MapPin,
   Ticket,
 } from "lucide-react";
+import MapView from "../../components/map/MapView";
 import { subscribeToIssueByToken } from "../../services/issues";
 import {
   mapIssue as mapTrackedIssue,
@@ -390,6 +391,44 @@ export default function TrackIssueDetails() {
           </p>
         )}
       </div>
+
+      <div
+        style={{
+          backgroundColor: "white",
+          padding: "1.25rem",
+          borderRadius: "16px",
+          marginBottom: "1rem",
+          border: "1px solid #E5E7EB",
+        }}
+      >
+        <div
+          style={{
+            fontSize: "0.65rem",
+            fontWeight: "700",
+            color: "#6B7280",
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            marginBottom: "1rem",
+          }}
+        >
+          Location
+        </div>
+        <div style={{ height: "200px", backgroundColor: "#EEF2FF", borderRadius: "12px", overflow: "hidden", position: "relative" }}>
+          {issue.lat && issue.lng ? (
+            <MapView
+              issues={[issue]}
+              center={[issue.lat, issue.lng]}
+              zoom={15}
+              variant="compact"
+            />
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", height: "100%", alignItems: "center", justifyContent: "center", color: "#6B7280" }}>
+              <MapPin size={28} color="#7C8FF0" style={{ marginBottom: "0.5rem" }} />
+              <p style={{ fontSize: "0.8rem" }}>Location unmapped</p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -488,6 +527,8 @@ function mapIssueDetails(data) {
       data.ai_description ??
       "No description was provided for this issue.",
     location: data.location ?? data.neighbourhood ?? "Location not provided",
+    lat: data.lat ? Number(data.lat) : null,
+    lng: data.lng ? Number(data.lng) : null,
     imageBefore:
       data.imageBefore ??
       data.beforeImage ??
