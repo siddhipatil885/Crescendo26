@@ -253,7 +253,7 @@ export default function IssueDetails({ issueId, isAdmin }) {
       </div>
 
       {/* Before/After Images */}
-      <div className="mb-6 flex-col gap-4">
+      <div className="mb-6 flex flex-col gap-4">
         {!beforeImage && !afterImage && (
           <div style={{ backgroundColor: '#F3F4F6', borderRadius: '16px', padding: '1rem', color: '#6B7280', fontSize: '0.85rem' }}>
             No before/after images available yet.
@@ -283,23 +283,6 @@ export default function IssueDetails({ issueId, isAdmin }) {
             <div style={{ padding: '1rem' }}>
               <div style={{ fontWeight: '600', fontSize: '0.9rem', marginBottom: '4px' }}>Resolved State</div>
               <div style={{ fontSize: '0.75rem', color: '#6B7280' }}>Issue has been resolved. {currentStatus === 'verified' && "The resolution has been verified by the community."}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Side-by-side comparison */}
-        {beforeImage && afterImage && (
-          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '1rem', border: '1px solid #E5E7EB' }}>
-            <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#4B5563', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>BEFORE / AFTER</div>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ flex: 1 }}>
-                <img src={beforeImage} alt="Before comparison" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '12px' }} />
-                <div style={{ marginTop: '6px', fontSize: '0.7rem', color: '#991B1B', fontWeight: '700' }}>BEFORE</div>
-              </div>
-              <div style={{ flex: 1 }}>
-                <img src={afterImage} alt="After comparison" style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '12px' }} />
-                <div style={{ marginTop: '6px', fontSize: '0.7rem', color: '#047857', fontWeight: '700' }}>AFTER</div>
-              </div>
             </div>
           </div>
         )}

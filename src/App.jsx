@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import MobileLayout from './components/MobileLayout';
 import Home from './pages/citizen/Home';
 import CaptureIssue from './pages/citizen/CaptureIssue';
@@ -11,6 +12,7 @@ import useIssueNotifications from './hooks/useIssueNotifications';
 import { trackIssue } from './utils/notifications';
 
 function App() {
+  const { t } = useTranslation();
   useIssueNotifications();
   const location = useLocation();
 
@@ -95,7 +97,8 @@ function App() {
         return (
           <div className="flex-col items-center justify-center" style={{ height: '70vh' }}>
             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=EEF2FF" style={{ width: 100, height: 100, borderRadius: '50%', marginBottom: '1rem' }} />
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '2rem' }}>Community Profile</h2>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '0.75rem' }}>{t('community_profile')}</h2>
+            <p style={{ fontSize: '0.95rem', color: '#6B7280', textAlign: 'center' }}>{t('change_language_instantly')}</p>
             
           </div>
         );

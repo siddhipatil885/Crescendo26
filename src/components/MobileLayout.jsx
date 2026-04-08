@@ -1,16 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { Menu, LayoutDashboard, Map as MapIcon, PlusCircle, Ticket, User, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
+import ProfileMenu from './ProfileMenu';
 
 export default function MobileLayout({
   children,
   activeTab,
   onTabChange,
-  title = 'CIVIX',
+  title,
   headerRight,
   showMenuButton = true,
   showBottomNav = true,
+  showLanguageSwitcher = true,
+  showProfileMenu = true,
 }) {
+  const { t } = useTranslation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuButtonRef = useRef(null);
   const menuDrawerRef = useRef(null);
@@ -90,11 +96,11 @@ export default function MobileLayout({
   }, [isMenuOpen]);
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'map', label: 'Map', icon: MapIcon },
-    { id: 'report', label: 'Report', icon: PlusCircle },
-    { id: 'track', label: 'Track Issue', icon: Ticket, to: '/track' },
-    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'dashboard', label: t('dashboard'), icon: LayoutDashboard },
+    { id: 'map', label: t('map'), icon: MapIcon },
+    { id: 'report', label: t('report'), icon: PlusCircle },
+    { id: 'track', label: t('track_issue'), icon: Ticket, to: '/track' },
+    { id: 'profile', label: t('profile'), icon: User },
   ];
 
   const handleMenuNavigation = (tab) => {
@@ -109,7 +115,7 @@ export default function MobileLayout({
           <button
             type="button"
             className="mobile-menu-backdrop"
-            aria-label="Close menu"
+            aria-label={t('close_menu')}
             onClick={() => setIsMenuOpen(false)}
           />
           <div
@@ -119,21 +125,21 @@ export default function MobileLayout({
             role="dialog"
             aria-modal="true"
             aria-hidden={!isMenuOpen}
-            aria-label="Navigation menu"
+            aria-label={t('navigation_menu')}
           >
             <div className="mobile-menu-header">
-              <div className="mobile-menu-title">Menu</div>
+              <div className="mobile-menu-title">{t('menu')}</div>
               <button
                 ref={closeButtonRef}
                 type="button"
                 className="mobile-menu-close"
                 onClick={() => setIsMenuOpen(false)}
-                aria-label="Close menu"
+                aria-label={t('close_menu')}
               >
                 <X size={20} />
               </button>
             </div>
-            <nav className="mobile-menu-nav" aria-label="Mobile navigation">
+            <nav className="mobile-menu-nav" aria-label={t('navigation_menu')}>
               {menuItems.map(({ id, label, icon: Icon, to }) => (
                 to ? (
                   <NavLink
@@ -172,7 +178,7 @@ export default function MobileLayout({
             aria-expanded={isMenuOpen}
             aria-controls="mobile-menu"
             aria-haspopup="dialog"
-            aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-label={isMenuOpen ? t('close_menu') : t('open_menu')}
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
             <Menu size={24} color="#7C8FF0" />
@@ -182,18 +188,14 @@ export default function MobileLayout({
         )}
 
         <div className="top-bar-logo">
-          {title}
+          {title || t('app_name')}
         </div>
 
-        {headerRight === undefined ? (
-          <img
-            src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=EEF2FF"
-            alt="User Profile"
-            className="user-avatar"
-          />
-        ) : (
-          headerRight
-        )}
+        <div className="top-bar-actions">
+          {headerRight}
+          {showLanguageSwitcher && <LanguageSwitcher />}
+          {showProfileMenu && <ProfileMenu />}
+        </div>
       </header>
 
       {/* Main Scrollable Content */}
@@ -209,7 +211,7 @@ export default function MobileLayout({
             onClick={() => onTabChange('dashboard')}
           >
             <LayoutDashboard size={20} />
-            <span>Dashboard</span>
+            <span>{t('dashboard')}</span>
           </button>
 
           <button
@@ -217,7 +219,7 @@ export default function MobileLayout({
             onClick={() => onTabChange('map')}
           >
             <MapIcon size={20} />
-            <span>Map</span>
+            <span>{t('map')}</span>
           </button>
 
           <button
@@ -225,7 +227,7 @@ export default function MobileLayout({
             onClick={() => onTabChange('report')}
           >
             <PlusCircle size={20} fill="#7C8FF0" color="white" />
-            <span>Report</span>
+            <span>{t('report')}</span>
           </button>
 
           <NavLink
@@ -234,7 +236,7 @@ export default function MobileLayout({
             style={{ textDecoration: 'none' }}
           >
             <Ticket size={20} />
-            <span>Track Issue</span>
+            <span>{t('track_issue')}</span>
           </NavLink>
 
           <button
@@ -242,7 +244,7 @@ export default function MobileLayout({
             onClick={() => onTabChange('profile')}
           >
             <User size={20} />
-            <span>Profile</span>
+            <span>{t('profile')}</span>
           </button>
         </nav>
       )}

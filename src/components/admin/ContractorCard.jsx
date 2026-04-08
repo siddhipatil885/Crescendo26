@@ -1,90 +1,76 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, HardHat, Loader2, UserX, Building2, BadgeCheck } from 'lucide-react';
+import { Phone, HardHat, Loader2, UserX, Building2, BadgeCheck, AlertCircle } from 'lucide-react';
 import { fetchContractorByName } from '../../services/contractors';
 
 /**
  * ContractorCard
- * Fetches and displays contractor details for a given contractorName.
- * If the issue already carries a flat string, pass it as `contractorName`.
+ * Shows contractor info for a given issue.
+ * - If contractorName is falsy → "No contractor assigned" state.
+ * - Tries to enrich from the Firestore `contractors` collection (optional).
+ * - If Firestore lookup fails or returns nothing, still shows the raw name.
  */
 export default function ContractorCard({ contractorName }) {
-  const [contractor, setContractor] = useState(null);
+  const [enriched, setEnriched] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!contractorName) {
-      setContractor(null);
+      setEnriched(null);
       setLoading(false);
-      setError(null);
       return;
     }
 
     let cancelled = false;
     setLoading(true);
-    setError(null);
 
     fetchContractorByName(contractorName)
       .then((data) => {
         if (!cancelled) {
-          setContractor(data);
+          setEnriched(data);
           setLoading(false);
         }
       })
-      .catch((err) => {
-        if (!cancelled) {
-          setError('Failed to load contractor details.');
-          setLoading(false);
-        }
+      .catch(() => {
+        // Firestore lookup failed — degrade gracefully, still show the string
+        if (!cancelled) setLoading(false);
       });
 
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [contractorName]);
 
-  // ── Loading ──────────────────────────────────────────────────────────
-  if (loading) {
+  // ── No contractor at all ────────────────────────────────────────────
+  if (!contractorName) {
     return (
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-3">
-        <Loader2 size={18} className="animate-spin text-indigo-500" />
-        <span className="text-sm text-slate-500 font-medium">Fetching contractor details…</span>
-      </div>
-    );
-  }
-
-  // ── Error ────────────────────────────────────────────────────────────
-  if (error) {
-    return (
-      <div className="bg-rose-50 border border-rose-100 rounded-2xl p-5 shadow-sm">
-        <p className="text-rose-700 text-sm font-medium">{error}</p>
-      </div>
-    );
-  }
-
-  // ── No contractor assigned ───────────────────────────────────────────
-  if (!contractor && !contractorName) {
-    return (
-      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-sm flex items-center gap-3">
-        <UserX size={18} className="text-slate-400" />
+      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+        <UserX size={16} className="text-slate-400 shrink-0" />
         <span className="text-sm text-slate-500 font-medium">No contractor assigned</span>
       </div>
     );
   }
 
-  // If issue had a contractor string but no matching Firestore doc, show the string
-  const displayName = contractor?.name || contractorName;
-  const phone = contractor?.contact_number || contractor?.phone || contractor?.contactNumber || null;
-  const company = contractor?.company || contractor?.organisation || null;
-  const verified = contractor?.verified ?? false;
+  // ── Loading enrichment ──────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
+        <Loader2 size={16} className="animate-spin text-indigo-500 shrink-0" />
+        <span className="text-sm text-slate-500 font-medium">Fetching contractor details…</span>
+      </div>
+    );
+  }
 
-  // ── Contractor Card ──────────────────────────────────────────────────
+  // ── Resolved data (enriched or raw string fallback) ─────────────────
+  const displayName = enriched?.name || contractorName;
+  const phone       = enriched?.contact_number || enriched?.phone || enriched?.contactNumber || null;
+  const company     = enriched?.company || enriched?.organisation || null;
+  const verified    = enriched?.verified ?? false;
+  const isPublic    = !displayName.toLowerCase().includes('not public');
+
   return (
     <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-2xl p-5 shadow-sm">
       <div className="flex items-start gap-4">
         {/* Avatar */}
-        <div className="shrink-0 w-11 h-11 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center shadow-sm">
-          <HardHat size={20} className="text-indigo-600" />
+        <div className="shrink-0 w-10 h-10 rounded-xl bg-indigo-100 border border-indigo-200 flex items-center justify-center shadow-sm">
+          <HardHat size={18} className="text-indigo-600" />
         </div>
 
         <div className="flex-1 min-w-0">
@@ -107,7 +93,7 @@ export default function ContractorCard({ contractorName }) {
             </p>
           )}
 
-          {/* Phone */}
+          {/* Phone or notice */}
           {phone ? (
             <a
               href={`tel:${phone}`}
@@ -117,7 +103,9 @@ export default function ContractorCard({ contractorName }) {
               {phone}
             </a>
           ) : (
-            <p className="text-slate-400 text-xs mt-2 italic">Contact not available</p>
+            <p className="text-slate-400 text-xs mt-2 italic">
+              {isPublic ? 'Contact not available' : 'Contact details are not public'}
+            </p>
           )}
         </div>
       </div>

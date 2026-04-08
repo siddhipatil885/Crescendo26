@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   MapPin, CheckCircle2, Clock, Loader2, LogOut, Search, Filter,
   LayoutDashboard, Map as MapIcon, FileText, Settings, X, ArrowRight, ShieldCheck,
@@ -8,20 +9,23 @@ import {
 import { subscribeToIssues, updateIssue } from '../../services/issues';
 import { ISSUE_STATUS, isInProgressStatus, isPendingStatus, isResolvedStatus, statusEquals } from '../../utils/constants';
 import { timeAgo } from '../../utils/formatters';
+import { uploadToCloudinary } from '../../services/storage';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '../auth/AuthFlow';
 import MapView from '../../components/map/MapView';
 import ContractorCard from '../../components/admin/ContractorCard';
+import LanguageSwitcher from '../../components/LanguageSwitcher';
 
-const statusBadge = (status) => {
+const statusBadge = (status, t) => {
   const s = status?.toLowerCase();
-  if (isPendingStatus(s)) return { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Pending' };
-  if (isInProgressStatus(s)) return { bg: 'bg-amber-100', text: 'text-amber-700', label: 'In Progress' };
-  if (isResolvedStatus(s)) return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: 'Resolved' };
-  return { bg: 'bg-slate-100', text: 'text-slate-700', label: 'Unknown' };
+  if (isPendingStatus(s)) return { bg: 'bg-rose-100', text: 'text-rose-700', label: t('pending') };
+  if (isInProgressStatus(s)) return { bg: 'bg-amber-100', text: 'text-amber-700', label: t('in_progress') };
+  if (isResolvedStatus(s)) return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: t('resolved') };
+  return { bg: 'bg-slate-100', text: 'text-slate-700', label: t('status_unknown') };
 };
 
 export default function AdminDashboard() {
+  const { t } = useTranslation();
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,6 +39,7 @@ export default function AdminDashboard() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [afterPhotoFile, setAfterPhotoFile] = useState(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(() => {
     return localStorage.getItem('admin_notifications') === 'true';
   });
@@ -116,7 +121,15 @@ export default function AdminDashboard() {
     setIsUpdating(true);
     try {
       const statusLabel = newStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-      await updateIssue(id, { 
+      
+      // Check if resolving and require after photo
+      if ((newStatus === ISSUE_STATUS.RESOLVED || newStatus === ISSUE_STATUS.COMPLETED) && !selectedIssue.afterImage && !afterPhotoFile) {
+        alert("Please upload an after photo before marking the issue as resolved.");
+        setIsUpdating(false);
+        return;
+      }
+
+      let updates = { 
         status: newStatus,
         timelineEvent: {
           type: 'status_update',
@@ -125,10 +138,23 @@ export default function AdminDashboard() {
           note: `Operational status marked as ${statusLabel}`,
           createdAt: new Date().toISOString()
         }
-      });
-      if (selectedIssue && selectedIssue.id === id) {
-        setSelectedIssue(prev => ({ ...prev, status: newStatus }));
+      };
+
+      // Upload after photo if provided
+      if (afterPhotoFile) {
+        const afterImageUrl = await uploadToCloudinary(afterPhotoFile);
+        updates.afterImage = afterImageUrl;
+        updates.afterImageUrl = afterImageUrl;
       }
+
+      await updateIssue(id, updates);
+      
+      if (selectedIssue && selectedIssue.id === id) {
+        setSelectedIssue(prev => ({ ...prev, status: newStatus, afterImage: updates.afterImage || prev.afterImage }));
+      }
+      
+      // Clear the file input
+      setAfterPhotoFile(null);
     } catch (err) {
       alert("Update failed: " + err.message);
     } finally {
@@ -199,6 +225,26 @@ export default function AdminDashboard() {
     else newSet.add(id);
     setSelectedRowIds(newSet);
   };
+
+  const navItems = [
+    { id: 'dashboard', icon: LayoutDashboard, label: t('dashboard') },
+    { id: 'map', icon: MapIcon, label: t('live_map') },
+    { id: 'issues', icon: ListTodo, label: t('issue_management') },
+    { id: 'analytics', icon: BarChart3, label: t('analytics_reports') },
+  ];
+
+  const mobileNavItems = [
+    ...navItems,
+    { id: 'settings', icon: Settings, label: t('settings') },
+  ];
+
+  const activeTabTitle = {
+    dashboard: t('dashboard'),
+    map: t('live_map'),
+    issues: t('issue_management'),
+    analytics: t('analytics_reports'),
+    settings: t('settings'),
+  }[activeTab] || t('dashboard');
 
   /* ===================== RENDER MODULES ===================== */
 
@@ -276,13 +322,13 @@ export default function AdminDashboard() {
           </h3>
           <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
             {issues.slice(0, 10).map(issue => {
-              const bgBadge = statusBadge(issue.status);
+              const bgBadge = statusBadge(issue.status, t);
               return (
                 <div key={issue.id} className="flex gap-4 p-4 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-colors" onClick={() => setSelectedIssue(issue)}>
                   <img src={issue.beforeImage || issue.beforeImageUrl || 'https://via.placeholder.com/60'} className="w-12 h-12 rounded-lg object-cover shadow-sm bg-slate-100" />
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-bold tracking-tight text-slate-900 truncate">{issue.category}</h4>
-                    <p className="text-xs text-slate-500 truncate mt-0.5">{issue.description || 'No description provided'}</p>
+                    <p className="text-xs text-slate-500 truncate mt-0.5">{issue.description || t('no_description_provided')}</p>
                     <p className="text-[11px] text-slate-400 mt-1.5 font-medium flex items-center"><Clock size={12} className="mr-1" /> {timeAgo(issue.createdAt || issue.reported_at)}</p>
                   </div>
                   <div className="flex flex-col items-end justify-center">
@@ -311,11 +357,11 @@ export default function AdminDashboard() {
           </div>
           <div className="flex-1 rounded-xl border border-slate-100 flex items-center justify-center bg-slate-50 p-8 min-h-[300px]">
             <div className="w-full space-y-5">
-              {Object.entries(issues.reduce((acc, i) => { acc[i.category || 'Other'] = (acc[i.category || 'Other'] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cat, count]) => (
+              {Object.entries(issues.reduce((acc, i) => { acc[i.category || t('other')] = (acc[i.category || t('other')] || 0) + 1; return acc; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cat, count]) => (
                 <div key={cat}>
                   <div className="flex justify-between text-sm mb-1.5">
                     <span className="font-semibold text-slate-700">{cat}</span>
-                    <span className="font-bold text-slate-900">{count} reports</span>
+                    <span className="font-bold text-slate-900">{t('reports_count', { count })}</span>
                   </div>
                   <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                     <div className="bg-indigo-500 h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, (count / issues.length) * 100)}%` }}></div>
@@ -371,7 +417,7 @@ export default function AdminDashboard() {
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filteredIssues.map((issue) => {
-              const badge = statusBadge(issue.status);
+              const badge = statusBadge(issue.status, t);
               return (
                 <tr key={issue.id} className="hover:bg-slate-50/80 transition-colors group">
                   <td className="p-4">
@@ -382,8 +428,8 @@ export default function AdminDashboard() {
                   </td>
                   <td className="px-4 py-4 max-w-[300px] cursor-pointer" onClick={() => setSelectedIssue(issue)}>
                     <div className="font-bold text-slate-900 mb-1 tracking-tight">{issue.category} <span className="font-mono text-[10px] text-slate-400 ml-2 font-normal bg-slate-100 px-1 py-0.5 rounded">#{issue.id?.slice(-5)}</span></div>
-                    <div className="text-xs text-slate-500 truncate leading-relaxed">{issue.description || 'No description'}</div>
-                    <div className="text-[11px] text-slate-400 mt-1.5 flex items-center font-medium"><MapPin size={12} className="mr-1" /> {issue.neighbourhood || 'Location Unknown'}</div>
+                    <div className="text-xs text-slate-500 truncate leading-relaxed">{issue.description || t('no_description')}</div>
+                    <div className="text-[11px] text-slate-400 mt-1.5 flex items-center font-medium"><MapPin size={12} className="mr-1" /> {issue.neighbourhood || t('location_unknown')}</div>
                   </td>
                   <td className="px-4 py-4">
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tracking-wide ${badge.bg} ${badge.text}`}>
@@ -391,7 +437,7 @@ export default function AdminDashboard() {
                     </span>
                     {issue.verified_by_citizen && (
                       <span className="inline-flex mt-2 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 items-center whitespace-nowrap">
-                        <ShieldCheck size={10} className="mr-1" /> Citizen Verified
+                        <ShieldCheck size={10} className="mr-1" /> {t('verified')}
                       </span>
                     )}
                   </td>
@@ -519,15 +565,10 @@ export default function AdminDashboard() {
             <div className="bg-indigo-500 p-1.5 rounded-lg mr-3 shadow-lg shadow-indigo-500/20">
               <ShieldCheck className="text-white" size={22} />
             </div>
-            <h1 className="text-xl font-extrabold text-white tracking-tight">CIVIX <span className="text-indigo-400 font-medium">Admin</span></h1>
+            <h1 className="text-xl font-extrabold text-white tracking-tight">CIVIX <span className="text-indigo-400 font-medium">{t('admin_panel')}</span></h1>
           </div>
           <nav className="p-4 space-y-1.5 mt-2">
-            {[
-              { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-              { id: 'map', icon: MapIcon, label: 'Live Map' },
-              { id: 'issues', icon: ListTodo, label: 'Issue Management' },
-              { id: 'analytics', icon: BarChart3, label: 'Analytics & Reports' },
-            ].map(item => (
+            {navItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
@@ -539,14 +580,14 @@ export default function AdminDashboard() {
             ))}
 
             <div className="pt-4 pb-2">
-              <p className="px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">System</p>
+              <p className="px-4 text-xs font-bold text-slate-600 uppercase tracking-wider">{t('system')}</p>
             </div>
             <button
               onClick={() => setActiveTab('settings')}
-              aria-label="Navigate to Settings"
+              aria-label={t('settings')}
               className={`w-full flex items-center px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-900/50' : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200'}`}
             >
-              <Settings size={18} className={`mr-3 ${activeTab === 'settings' ? 'opacity-100' : 'opacity-70'}`} /> Settings & Personnel
+              <Settings size={18} className={`mr-3 ${activeTab === 'settings' ? 'opacity-100' : 'opacity-70'}`} /> {t('settings_personnel')}
             </button>
           </nav>
         </div>
@@ -556,7 +597,7 @@ export default function AdminDashboard() {
             aria-label="Logout of administrative session"
             className="w-full flex items-center px-4 py-3 text-slate-400 hover:text-white hover:bg-rose-500/10 rounded-xl font-semibold transition-colors group"
           >
-            <LogOut size={18} className="mr-3 group-hover:text-rose-400 transition-colors" /> Logout Session
+            <LogOut size={18} className="mr-3 group-hover:text-rose-400 transition-colors" /> {t('logout_session')}
           </button>
         </div>
       </aside>
@@ -572,20 +613,14 @@ export default function AdminDashboard() {
               </h1>
               <button 
                 onClick={() => setMobileMenuOpen(false)}
-                aria-label="Close mobile menu"
+                aria-label={t('close_menu')}
                 className="text-slate-400 hover:text-white p-2"
               >
                 <X size={24} />
               </button>
             </div>
             <nav className="p-4 space-y-2 flex-1">
-              {[
-                { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-                { id: 'map', icon: MapIcon, label: 'Live Map' },
-                { id: 'issues', icon: ListTodo, label: 'Issue Management' },
-                { id: 'analytics', icon: BarChart3, label: 'Analytics & Reports' },
-                { id: 'settings', icon: Settings, label: 'Settings' },
-              ].map(item => (
+              {mobileNavItems.map(item => (
                 <button
                   key={item.id}
                   onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
@@ -602,7 +637,7 @@ export default function AdminDashboard() {
                 aria-label="Logout of session"
                 className="w-full flex items-center px-4 py-4 text-rose-400 bg-rose-500/10 rounded-xl font-bold transition-colors"
               >
-                <LogOut size={20} className="mr-4" /> Logout
+                <LogOut size={20} className="mr-4" /> {t('logout')}
               </button>
             </div>
           </div>
@@ -617,23 +652,24 @@ export default function AdminDashboard() {
           <div className="flex items-center">
             <button 
               onClick={() => setMobileMenuOpen(true)}
-              aria-label="Open mobile menu"
+              aria-label={t('open_menu')}
               className="md:hidden mr-4 p-2 text-slate-500 hover:text-indigo-600 bg-slate-50 rounded-lg transition-colors"
             >
               <Menu size={20} />
             </button>
-            <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight capitalize">{activeTab.replace('-', ' ')}</h2>
+            <h2 className="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">{activeTabTitle}</h2>
             {loading && <Loader2 size={18} className="ml-4 animate-spin text-indigo-500" />}
           </div>
 
           <div className="flex items-center space-x-6">
+            <LanguageSwitcher />
 
             <div className="relative group hidden lg:block">
               <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={16} aria-hidden="true" />
               <input
                 type="text"
-                placeholder="Search database..."
-                aria-label="Search incidents and database"
+                placeholder={t('search_database')}
+                aria-label={t('search_database')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 pr-4 py-2.5 border border-transparent rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent focus:bg-white w-64 bg-slate-100 text-slate-800 transition-all placeholder:text-slate-400"
@@ -653,8 +689,8 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-3 cursor-pointer pl-2">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-slate-900 leading-tight">Puneet S.</p>
-                <p className="text-xs font-medium text-slate-500">Admin</p>
-              </div>
+              <p className="text-xs font-medium text-slate-500">{t('admin')}</p>
+            </div>
               <div className="h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-700 font-bold border-2 border-indigo-200 shadow-sm">
                 PU
               </div>
@@ -702,9 +738,21 @@ export default function AdminDashboard() {
             {/* Drawer Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
 
-              <div className="w-full h-72 bg-slate-200 rounded-2xl overflow-hidden mb-8 relative border border-slate-200 shadow-inner group">
-                <img src={selectedIssue.beforeImage || selectedIssue.beforeImageUrl || 'https://via.placeholder.com/500'} alt="Documentation" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm">Field Evidence</div>
+              {/* Images Section */}
+              <div className="space-y-6 mb-8">
+                {/* Before Image */}
+                <div className="w-full h-72 bg-slate-200 rounded-2xl overflow-hidden relative border border-slate-200 shadow-inner group">
+                  <img src={selectedIssue.beforeImage || selectedIssue.beforeImageUrl || 'https://via.placeholder.com/500'} alt="Before Documentation" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md text-slate-900 text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm">BEFORE</div>
+                </div>
+
+                {/* After Image - Only show if exists */}
+                {(selectedIssue.afterImage || selectedIssue.afterImageUrl) && (
+                  <div className="w-full h-72 bg-slate-200 rounded-2xl overflow-hidden relative border border-slate-200 shadow-inner group">
+                    <img src={selectedIssue.afterImage || selectedIssue.afterImageUrl} alt="After Documentation" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                    <div className="absolute top-4 left-4 bg-emerald-500/90 backdrop-blur-md text-white text-[10px] font-extrabold px-3 py-1.5 rounded-full uppercase tracking-widest shadow-sm">AFTER</div>
+                  </div>
+                )}
               </div>
 
               <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-sm">
@@ -725,6 +773,148 @@ export default function AdminDashboard() {
                     <option value={ISSUE_STATUS.VERIFIED}>🛡️ Verified by Citizen</option>
                   </select>
                 </div>
+              </div>
+
+              {/* After Photo Upload Section */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-sm">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Resolution Evidence</label>
+                {selectedIssue.afterImage || selectedIssue.afterImageUrl ? (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center gap-3">
+                    <CheckCircle2 size={20} className="text-emerald-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs text-emerald-700 font-bold">After photo uploaded successfully</p>
+                      <p className="text-[11px] text-emerald-600 mt-0.5">Image is displayed above for verification</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-indigo-400 hover:bg-slate-50 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            if (file.size > 10 * 1024 * 1024) {
+                              alert('File size must be less than 10MB');
+                              return;
+                            }
+                            if (!file.type.startsWith('image/')) {
+                              alert('Please select a valid image file');
+                              return;
+                            }
+                            setAfterPhotoFile(file);
+                          }
+                        }}
+                        className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
+                        aria-label="Select after photo"
+                      />
+                      <p className="text-xs text-slate-500 mt-2">Click to select or drag and drop image</p>
+                    </div>
+
+                    {afterPhotoFile && (
+                      <div className="space-y-3">
+                        {/* File Preview Card */}
+                        <div className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-lg p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <p className="text-sm font-bold text-slate-900 truncate">{afterPhotoFile.name}</p>
+                              <div className="flex gap-3 mt-2 text-[11px] text-slate-500">
+                                <span>Size: {(afterPhotoFile.size / 1024 / 1024).toFixed(2)}MB</span>
+                                <span>Type: {afterPhotoFile.type.split('/')[1].toUpperCase()}</span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => setAfterPhotoFile(null)}
+                              disabled={isUpdating}
+                              className="ml-2 p-1.5 hover:bg-slate-200 rounded transition text-slate-400 hover:text-slate-600"
+                              aria-label="Remove file"
+                            >
+                              <X size={18} />
+                            </button>
+                          </div>
+                          
+                          {/* Image Preview Thumbnail */}
+                          <div className="w-full h-32 bg-slate-200 rounded overflow-hidden mb-3">
+                            <img 
+                              src={URL.createObjectURL(afterPhotoFile)} 
+                              alt="Preview" 
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+
+                          {/* File Validation Indicators */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 text-[11px]">
+                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                              <span className="text-emerald-700 font-medium">Format valid</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[11px]">
+                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                              <span className="text-emerald-700 font-medium">Size acceptable</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Upload Instructions */}
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                          <p className="text-xs text-blue-700 font-medium">Requirements:</p>
+                          <ul className="text-[11px] text-blue-600 mt-1.5 space-y-1 pl-4">
+                            <li>• Clear image of the resolved issue</li>
+                            <li>• Maximum file size: 10MB</li>
+                            <li>• Supported formats: JPG, PNG, WebP, GIF</li>
+                            <li>• Recommended: Well-lit, high-resolution photo</li>
+                          </ul>
+                        </div>
+
+                        {/* Confirm Upload Button */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              const afterImageUrl = await uploadToCloudinary(afterPhotoFile);
+                              await updateIssue(selectedIssue.id, { 
+                                afterImage: afterImageUrl, 
+                                afterImageUrl: afterImageUrl,
+                                lastModified: new Date().toISOString()
+                              });
+                              setSelectedIssue(prev => ({ 
+                                ...prev, 
+                                afterImage: afterImageUrl, 
+                                afterImageUrl: afterImageUrl 
+                              }));
+                              setAfterPhotoFile(null);
+                              alert('✓ After photo confirmed and uploaded successfully!');
+                            } catch (err) {
+                              alert('✗ Upload failed: ' + err.message);
+                            }
+                          }}
+                          disabled={isUpdating}
+                          className="w-full bg-emerald-600 text-white py-3 px-4 rounded-lg font-semibold text-sm hover:bg-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                          aria-label="Confirm photo upload"
+                        >
+                          {isUpdating ? (
+                            <>
+                              <Loader2 size={16} className="animate-spin" />
+                              Uploading...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 size={16} />
+                              Confirm Upload
+                            </>
+                          )}
+                        </button>
+
+                        {/* Helpful Tip */}
+                        <p className="text-xs text-slate-500 text-center italic">After upload, the photo will appear above for review. You can then mark the issue as resolved.</p>
+                      </div>
+                    )}
+
+                    {!afterPhotoFile && (
+                      <p className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">Upload a photo showing the resolved issue (required for resolution)</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {selectedIssue.verified_by_citizen && (

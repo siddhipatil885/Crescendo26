@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Image as ImageIcon, UploadCloud, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export default function CaptureIssue({ onCapture }) {
+  const { t } = useTranslation();
   const [selectedImage, setSelectedImage] = useState(null);
   const [loading, setLoading] = useState(false);
   
@@ -41,11 +43,11 @@ export default function CaptureIssue({ onCapture }) {
       {/* Header */}
       <div className="mt-6 mb-6">
         <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1F2937' }}>
-          Report an Issue
+          {t('report_issue')}
         </h1>
         <p className="text-light text-sm mt-2" style={{ lineHeight: '1.4' }}>
-          Help us improve your neighborhood.<br/>
-          Capture a photo and provide report details.
+          {t('help_neighborhood')}<br/>
+          {t('capture_photo_and_details')}
         </p>
       </div>
 
@@ -92,15 +94,15 @@ export default function CaptureIssue({ onCapture }) {
             </div>
             <div className="flex-col items-center">
               <span style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1F2937' }}>
-                Take Photo
+                {t('take_photo')}
               </span>
-              <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>Open device camera</span>
+              <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>{t('open_device_camera')}</span>
             </div>
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1rem 0' }}>
             <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
-            <span style={{ fontSize: '0.8rem', color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase' }}>or</span>
+            <span style={{ fontSize: '0.8rem', color: '#9CA3AF', fontWeight: '600', textTransform: 'uppercase' }}>{t('or')}</span>
             <div style={{ flex: 1, height: '1px', backgroundColor: '#E5E7EB' }}></div>
           </div>
 
@@ -123,8 +125,8 @@ export default function CaptureIssue({ onCapture }) {
               <ImageIcon size={24} color="#4B5563" />
             </div>
             <div className="flex-col" style={{ textAlign: 'left' }}>
-              <span style={{ fontSize: '1rem', fontWeight: '600', color: '#1F2937' }}>Upload from Gallery</span>
-              <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>Choose an existing image</span>
+              <span style={{ fontSize: '1rem', fontWeight: '600', color: '#1F2937' }}>{t('upload_from_gallery')}</span>
+              <span style={{ fontSize: '0.75rem', color: '#6B7280' }}>{t('choose_existing_image')}</span>
             </div>
           </button>
         </div>
@@ -133,7 +135,7 @@ export default function CaptureIssue({ onCapture }) {
           <div style={{ position: 'relative', width: '100%', height: '240px', borderRadius: '20px', overflow: 'hidden', marginBottom: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
             <img 
               src={selectedImage.preview} 
-              alt="Selected Issue" 
+              alt={t('report_issue')}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
             <button 
@@ -156,7 +158,7 @@ export default function CaptureIssue({ onCapture }) {
             style={{ backgroundColor: '#7C8FF0' }}
           >
             <UploadCloud size={18} />
-            Next Step
+            {t('next_step')}
           </button>
         </div>
       )}
