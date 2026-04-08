@@ -35,12 +35,25 @@ export const uploadImage = async (file, issueId = "general", type = "image") => 
     return data.secure_url;
   } catch (error) {
     console.error("Upload error:", error);
-    throw new Error("Image upload failed. Please try again.");
+    throw new Error(error?.message || "Image upload failed. Please try again.");
   }
 };
 
-export const uploadToCloudinary = (file, issueId, type) => uploadImage(file, issueId, type);
-export const uploadIssueImage = (issueId, file, imageType) => uploadImage(file, issueId, imageType);
+export const uploadToCloudinary = (file, issueId, type) => {
+  if (!issueId || !type) {
+    throw new Error("uploadToCloudinary requires issueId and type");
+  }
+
+  return uploadImage(file, issueId, type);
+};
+
+export const uploadIssueImage = (issueId, file, imageType) => {
+  if (!issueId || !imageType) {
+    throw new Error("uploadIssueImage requires issueId and imageType");
+  }
+
+  return uploadImage(file, issueId, imageType);
+};
 
 /**
  * Get a resized thumbnail version of any Cloudinary URL.

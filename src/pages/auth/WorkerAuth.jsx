@@ -4,6 +4,39 @@ import { useNavigate } from "react-router-dom";
 import { auth, db } from "../../services/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
+export async function isWorkerAuthorized(user, tokenResult) {
+  if (!user || !tokenResult) {
+    return false;
+  }
+
+  if (Boolean(tokenResult.claims?.worker)) {
+    return true;
+  }
+
+  const devWorkerEmails = import.meta.env.VITE_DEV_WORKER_EMAILS;
+  const isDevWorker = Boolean(
+    devWorkerEmails &&
+      devWorkerEmails
+        .split(",")
+        .map((email) => email.trim())
+        .filter(Boolean)
+        .includes(user.email)
+  );
+
+  if (isDevWorker) {
+    return true;
+  }
+
+  try {
+    const workerQuery = query(collection(db, "workers"), where("email", "==", user.email));
+    const workerSnapshot = await getDocs(workerQuery);
+    return !workerSnapshot.empty;
+  } catch (firestoreError) {
+    console.warn("Firestore worker check failed, falling back to claims/env checks", firestoreError.message);
+    return false;
+  }
+}
+
 export const useWorkerAuth = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -17,20 +50,7 @@ export const useWorkerAuth = () => {
       const user = userCredential.user;
       const tokenResult = await user.getIdTokenResult();
 
-      const hasWorkerClaim = Boolean(tokenResult.claims?.worker);
-      const devWorkerEmails = import.meta.env.VITE_DEV_WORKER_EMAILS;
-      const isDevWorker = devWorkerEmails && devWorkerEmails.split(",").includes(user.email);
-
-      let isDbWorker = false;
-      try {
-        const workerQuery = query(collection(db, "workers"), where("email", "==", user.email));
-        const workerSnapshot = await getDocs(workerQuery);
-        isDbWorker = !workerSnapshot.empty;
-      } catch (firestoreError) {
-        console.warn("Firestore worker check failed, falling back to claims/env checks", firestoreError.message);
-      }
-
-      if (hasWorkerClaim || isDevWorker || isDbWorker) {
+      if (await isWorkerAuthorized(user, tokenResult)) {
         onSuccess?.();
       } else {
         await signOut(auth);

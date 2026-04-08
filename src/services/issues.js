@@ -15,7 +15,6 @@ import {
   limit,
   where,
   startAfter,
-  deleteField,
   onSnapshot
 } from "firebase/firestore";
 import { saveToken } from "../utils/token";

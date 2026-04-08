@@ -1,11 +1,11 @@
-const AI_ROUTE_URL = import.meta.env.VITE_AI_ROUTE_URL || 'http://localhost:3000/route-issue';
+const AI_ROUTE_URL = import.meta.env.VITE_AI_ROUTE_URL ?? 'http://localhost:3000/route-issue';
 
 export async function routeIssueText(text) {
   if (!text || typeof text !== 'string') {
     return null;
   }
 
-  if (!AI_ROUTE_URL) {
+  if (AI_ROUTE_URL == null || AI_ROUTE_URL === '') {
     return null;
   }
 

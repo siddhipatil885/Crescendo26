@@ -516,10 +516,13 @@ function ImageCard({ title, imageUrl, badgeBackground }) {
 
 function mapIssueDetails(data) {
   const normalizedIssue = mapTrackedIssue(data);
+  const normalizedStatus = String(data.status || "").trim().toLowerCase().replace(/\s+/g, "_");
+  const locationLat = Number(data.location?.lat ?? data.lat);
+  const locationLng = Number(data.location?.lng ?? data.lng);
   const statusSource =
     data.citizenVerification?.status === "accepted" || data.verified_by_citizen || data.verified_at
       ? "verified"
-      : data.citizenVerification?.status === "rejected"
+      : data.citizenVerification?.status === "rejected" || normalizedStatus === ISSUE_STATUS.ASSIGNED
         ? "in_progress"
         : data.status;
 
@@ -532,8 +535,8 @@ function mapIssueDetails(data) {
       data.ai_description ??
       "No description was provided for this issue.",
     location: data.location?.address ?? data.locationLabel ?? data.neighbourhood ?? "Location not provided",
-    lat: data.location?.lat != null ? Number(data.location.lat) : data.lat != null ? Number(data.lat) : null,
-    lng: data.location?.lng != null ? Number(data.location.lng) : data.lng != null ? Number(data.lng) : null,
+    lat: Number.isFinite(locationLat) ? locationLat : null,
+    lng: Number.isFinite(locationLng) ? locationLng : null,
     imageBefore:
       data.imageBefore ??
       data.beforeImage ??
@@ -562,6 +565,10 @@ function normalizeStatus(status) {
   }
 
   if (normalizedStatus === "review") {
+    return "in_progress";
+  }
+
+  if (normalizedStatus === ISSUE_STATUS.ASSIGNED) {
     return "in_progress";
   }
 

@@ -28,6 +28,7 @@ export default function WorkerDashboard() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const fileInputRefs = useRef({});
+  const objectUrlsRef = useRef({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -92,7 +93,29 @@ export default function WorkerDashboard() {
     }
   }, [activeIssueId, issues]);
 
+  useEffect(() => () => {
+    Object.values(objectUrlsRef.current).forEach((objectUrl) => {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    });
+  }, []);
+
+  const clearObjectUrl = (issueId) => {
+    const existingUrl = objectUrlsRef.current[issueId];
+    if (existingUrl) {
+      URL.revokeObjectURL(existingUrl);
+      delete objectUrlsRef.current[issueId];
+    }
+  };
+
   const handleFileChange = (issueId, file) => {
+    clearObjectUrl(issueId);
+
+    if (file) {
+      objectUrlsRef.current[issueId] = URL.createObjectURL(file);
+    }
+
     setSelectedFiles((current) => ({
       ...current,
       [issueId]: file || null,
@@ -140,6 +163,7 @@ export default function WorkerDashboard() {
       });
 
       setMessage(`Proof submitted successfully. Device verified within ${Math.round(result.distance)} meters.`);
+      clearObjectUrl(issue.id);
       setSelectedFiles((current) => ({
         ...current,
         [issue.id]: null,
@@ -328,7 +352,7 @@ export default function WorkerDashboard() {
                     <div style={{ padding: "0.75rem 1rem", fontWeight: 700, color: "#0F172A" }}>After preview</div>
                     {selectedFiles[activeIssue.id] ? (
                       <img
-                        src={URL.createObjectURL(selectedFiles[activeIssue.id])}
+                        src={objectUrlsRef.current[activeIssue.id]}
                         alt="Selected after proof"
                         style={{ width: "100%", height: "240px", objectFit: "cover" }}
                       />

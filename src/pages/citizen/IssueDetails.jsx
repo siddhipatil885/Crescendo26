@@ -116,7 +116,7 @@ export default function IssueDetails({ issueId, isAdmin }) {
 
     setIsVerifying(true);
     try {
-      const afterImageUrl = await uploadToCloudinary(file);
+      const afterImageUrl = await uploadToCloudinary(file, issueId, 'verification');
       await updateIssue(issueId, {
         afterImage: afterImageUrl,
         status: ISSUE_STATUS.VERIFIED
@@ -171,6 +171,11 @@ export default function IssueDetails({ issueId, isAdmin }) {
   const issueLat = issue.location?.lat ?? issue.lat;
   const issueLng = issue.location?.lng ?? issue.lng;
   const issueAddress = issue.location?.address || issue.locationLabel || issue.neighbourhood || 'Address unavailable';
+  const parsedIssueLat = Number(issueLat);
+  const parsedIssueLng = Number(issueLng);
+  const formattedLocation = Number.isFinite(parsedIssueLat) && Number.isFinite(parsedIssueLng)
+    ? `${parsedIssueLat.toFixed(4)}, ${parsedIssueLng.toFixed(4)}`
+    : 'N/A';
   const workerProofPending = statusEquals(currentStatus, ISSUE_STATUS.RESOLVED) && issue.citizenVerification?.status === 'pending';
   const workerProofLocation = issue.afterUploadMeta?.lat != null && issue.afterUploadMeta?.lng != null
     ? `${Number(issue.afterUploadMeta.lat).toFixed(5)}, ${Number(issue.afterUploadMeta.lng).toFixed(5)}`
@@ -362,7 +367,7 @@ export default function IssueDetails({ issueId, isAdmin }) {
         </div>
         <div className="flex-row justify-between mb-4">
           <span style={{ fontSize: '0.8rem', color: '#4B5563' }}>Location</span>
-          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1F2937' }}>{issueLat != null && issueLng != null ? `${issueLat.toFixed(4)}, ${issueLng.toFixed(4)}` : 'N/A'}</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1F2937' }}>{formattedLocation}</span>
         </div>
         <div className="flex-row justify-between mb-4">
           <span style={{ fontSize: '0.8rem', color: '#4B5563' }}>Address</span>

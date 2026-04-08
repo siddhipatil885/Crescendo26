@@ -106,14 +106,12 @@ export default function AdminDashboard() {
       try {
         const workersList = mergeWorkersWithFallback(await fetchActiveWorkers());
         if (!cancelled) {
-          console.log('Workers fetched:', workersList);
           setWorkers(workersList);
         }
       } catch (workerError) {
         console.warn('Worker list load failed:', workerError);
         if (!cancelled) {
           const fallbackWorkers = mergeWorkersWithFallback([]);
-          console.log('Workers fallback state:', fallbackWorkers);
           setWorkers(fallbackWorkers);
         }
       }
@@ -125,10 +123,6 @@ export default function AdminDashboard() {
       cancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    console.log('Workers state:', workers);
-  }, [workers]);
 
   useEffect(() => {
     localStorage.setItem('admin_notifications', notificationsEnabled);
@@ -215,7 +209,7 @@ export default function AdminDashboard() {
 
       // Upload after photo if provided
       if (afterPhotoFile) {
-        const afterImageUrl = await uploadToCloudinary(afterPhotoFile);
+        const afterImageUrl = await uploadToCloudinary(afterPhotoFile, id, 'after');
         updates.afterImage = afterImageUrl;
         updates.afterImageUrl = afterImageUrl;
       }
@@ -1038,7 +1032,7 @@ export default function AdminDashboard() {
 
                             setIsUpdating(true);
                             try {
-                              const afterImageUrl = await uploadToCloudinary(afterPhotoFile);
+                              const afterImageUrl = await uploadToCloudinary(afterPhotoFile, selectedIssue.id, 'after');
                               await updateIssue(selectedIssue.id, { 
                                 afterImage: afterImageUrl, 
                                 afterImageUrl: afterImageUrl,

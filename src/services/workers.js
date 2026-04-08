@@ -2,6 +2,8 @@ import {
   collection,
   getDocs,
   onSnapshot,
+  query,
+  where,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -50,12 +52,15 @@ export const subscribeToWorkerProfile = (uid, onData, onError) => {
     return () => {};
   }
 
-  const workerRef = collection(db, WORKERS_COLLECTION);
+  const workerQuery = query(
+    collection(db, WORKERS_COLLECTION),
+    where("uid", "==", uid)
+  );
 
   return onSnapshot(
-    workerRef,
+    workerQuery,
     (snapshot) => {
-      const worker = snapshot.docs.find((docSnapshot) => docSnapshot.data()?.uid === uid);
+      const worker = snapshot.docs[0];
       onData?.(worker ? mapWorkerDoc(worker) : null);
     },
     (error) => {

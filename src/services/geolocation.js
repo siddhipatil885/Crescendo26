@@ -53,7 +53,12 @@ export async function getCurrentLocationWithMeta() {
 
 export function getDistanceInMeters(lat1, lng1, lat2, lng2) {
   const coords = [lat1, lng1, lat2, lng2];
-  if (!coords.every((value) => Number.isFinite(Number(value)))) {
+  const isValidCoordinate = (value) =>
+    value != null &&
+    value !== '' &&
+    Number.isFinite(Number(value));
+
+  if (!coords.every(isValidCoordinate)) {
     return Number.POSITIVE_INFINITY;
   }
 

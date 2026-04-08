@@ -2,12 +2,11 @@ import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
-import { collection, getDocs, query, where } from 'firebase/firestore'
-import { auth, db } from './services/firebase'
+import { auth } from './services/firebase'
 import App from './App'
 import MobileLayout from './components/MobileLayout'
 import AuthFlow from './pages/auth/AuthFlow'
-import WorkerAuth from './pages/auth/WorkerAuth'
+import WorkerAuth, { isWorkerAuthorized } from './pages/auth/WorkerAuth'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import WorkerDashboard from './pages/worker/WorkerDashboard'
 import TrackIssue from './pages/citizen/TrackIssue'
@@ -19,26 +18,55 @@ function ProtectedRoute({ children }) {
   const [user, setUser] = useState(undefined)
 
   useEffect(() => {
+    let active = true
+    let authRequestId = 0
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      const requestId = ++authRequestId
+
+      const commitUser = (nextUser) => {
+        if (!active || requestId !== authRequestId) {
+          return
+        }
+
+        setUser(nextUser)
+      }
+
       if (u) {
         try {
           const tokenResult = await u.getIdTokenResult()
+          if (!active || requestId !== authRequestId || auth.currentUser?.uid !== u.uid) {
+            return
+          }
+
           const devAdminEmails = import.meta.env.VITE_DEV_ADMIN_EMAILS;
-          const isDevAdmin = devAdminEmails && devAdminEmails.split(',').includes(tokenResult.claims?.email || u.email);
+          const isDevAdmin = Boolean(
+            devAdminEmails &&
+            devAdminEmails
+              .split(',')
+              .map((email) => email.trim())
+              .filter(Boolean)
+              .includes(tokenResult.claims?.email || u.email)
+          );
           
           if (tokenResult.claims?.admin || isDevAdmin) {
-            setUser(u)
+            commitUser(u)
           } else {
-            setUser(null)
+            commitUser(null)
           }
         } catch (e) {
-          setUser(null)
+          commitUser(null)
         }
       } else {
-        setUser(null)
+        commitUser(null)
       }
     })
-    return () => unsubscribe()
+
+    return () => {
+      active = false
+      authRequestId += 1
+      unsubscribe()
+    }
   }, [])
 
   if (user === undefined) {
@@ -60,37 +88,49 @@ function WorkerProtectedRoute({ children }) {
   const [user, setUser] = useState(undefined)
 
   useEffect(() => {
+    let active = true
+    let authRequestId = 0
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      const requestId = ++authRequestId
+
+      const commitUser = (nextUser) => {
+        if (!active || requestId !== authRequestId) {
+          return
+        }
+
+        setUser(nextUser)
+      }
+
       if (u) {
         try {
           const tokenResult = await u.getIdTokenResult()
-          const devWorkerEmails = import.meta.env.VITE_DEV_WORKER_EMAILS;
-          const isDevWorker = devWorkerEmails && devWorkerEmails.split(',').includes(tokenResult.claims?.email || u.email);
-          let isDbWorker = false;
-
-          if (!tokenResult.claims?.worker && !isDevWorker) {
-            try {
-              const workerQuery = query(collection(db, 'workers'), where('email', '==', u.email))
-              const snapshot = await getDocs(workerQuery)
-              isDbWorker = !snapshot.empty
-            } catch (workerCheckError) {
-              console.warn('Worker access lookup failed:', workerCheckError)
-            }
+          if (!active || requestId !== authRequestId || auth.currentUser?.uid !== u.uid) {
+            return
           }
 
-          if (tokenResult.claims?.worker || isDevWorker || isDbWorker) {
-            setUser(u)
+          if (await isWorkerAuthorized(u, tokenResult)) {
+            if (!active || requestId !== authRequestId || auth.currentUser?.uid !== u.uid) {
+              return
+            }
+
+            commitUser(u)
           } else {
-            setUser(null)
+            commitUser(null)
           }
         } catch (e) {
-          setUser(null)
+          commitUser(null)
         }
       } else {
-        setUser(null)
+        commitUser(null)
       }
     })
-    return () => unsubscribe()
+
+    return () => {
+      active = false
+      authRequestId += 1
+      unsubscribe()
+    }
   }, [])
 
   if (user === undefined) {
