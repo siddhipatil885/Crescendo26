@@ -49,4 +49,4 @@ npm run dev
 ## 📄 **License**
 MIT © Siddhi Patil [crescendo-hackathon.devfolio](https://crescendo-hackathon.devfolio.co)
 
-**Built with ❤️ for Pune citizens. Star if helpful! ⭐** [linkedin](https://www.linkedin.com/posts/aryankyatham_hey-everyone-we-won-the-crescendo-hackathon-activity-7166766965880045569-u9xA)
+**Built with ❤️ for Pune citizens. Star if helpful! ⭐**
