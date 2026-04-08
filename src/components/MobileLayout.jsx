@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Menu, LayoutDashboard, Map as MapIcon, PlusCircle, Ticket, User, X } from 'lucide-react';
+import { Menu, LayoutDashboard, Map as MapIcon, PlusCircle, Ticket, Flame, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
 import ProfileMenu from './ProfileMenu';
@@ -100,7 +100,7 @@ export default function MobileLayout({
     { id: 'map', label: t('map'), icon: MapIcon },
     { id: 'report', label: t('report'), icon: PlusCircle },
     { id: 'track', label: t('track_issue'), icon: Ticket, to: '/track' },
-    { id: 'profile', label: t('profile'), icon: User },
+    { id: 'feed', label: 'Feed', icon: Flame, to: '/feed' },
   ];
 
   const handleMenuNavigation = (tab) => {
@@ -239,13 +239,14 @@ export default function MobileLayout({
             <span>{t('track_issue')}</span>
           </NavLink>
 
-          <button
-            className={`nav-item ${activeTab === 'profile' ? 'active' : ''}`}
-            onClick={() => onTabChange('profile')}
+          <NavLink
+            to="/feed"
+            className={({ isActive }) => `nav-item ${activeTab === 'feed' || isActive ? 'active' : ''}`}
+            style={{ textDecoration: 'none' }}
           >
-            <User size={20} />
-            <span>{t('profile')}</span>
-          </button>
+            <Flame size={20} />
+            <span>Feed</span>
+          </NavLink>
         </nav>
       )}
     </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
 import { collection, query, where, getDocs } from 'firebase/firestore'
 import { auth, db } from './services/firebase'
@@ -12,6 +12,8 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import WorkerDashboard from './pages/worker/WorkerDashboard'
 import TrackIssue from './pages/citizen/TrackIssue'
 import TrackIssueDetails from './pages/citizen/TrackIssueDetails'
+import Feed from './pages/citizen/Feed'
+import IssueDetails from './pages/citizen/IssueDetails'
 import './i18n'
 import './index.css'
 
@@ -224,11 +226,75 @@ function TrackedIssueDetailsPage() {
   )
 }
 
+function FeedPage() {
+  const navigate = useNavigate()
+
+  const handleTabChange = (tabId) => {
+    if (tabId === 'feed') {
+      return
+    }
+
+    if (tabId === 'track') {
+      navigate('/track')
+      return
+    }
+
+    navigate('/', { state: { activeTab: tabId } })
+  }
+
+  return (
+    <div className="app-shell">
+      <div className="mobile-frame">
+        <MobileLayout
+          activeTab="feed"
+          onTabChange={handleTabChange}
+        >
+          <Feed />
+        </MobileLayout>
+      </div>
+    </div>
+  )
+}
+
+function FeedIssueDetailsPage() {
+  const navigate = useNavigate()
+  const { issueId = '' } = useParams()
+
+  const handleTabChange = (tabId) => {
+    if (tabId === 'feed') {
+      navigate('/feed')
+      return
+    }
+
+    if (tabId === 'track') {
+      navigate('/track')
+      return
+    }
+
+    navigate('/', { state: { activeTab: tabId } })
+  }
+
+  return (
+    <div className="app-shell">
+      <div className="mobile-frame">
+        <MobileLayout
+          activeTab="feed"
+          onTabChange={handleTabChange}
+        >
+          <IssueDetails issueId={issueId} isAdmin={false} />
+        </MobileLayout>
+      </div>
+    </div>
+  )
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<App />} />
+        <Route path="/feed" element={<FeedPage />} />
+        <Route path="/feed/:issueId" element={<FeedIssueDetailsPage />} />
         <Route path="/track" element={<TrackIssuePage />} />
         <Route path="/track/:tokenId" element={<TrackedIssueDetailsPage />} />
         <Route path="/admin/login" element={<AuthFlow />} />

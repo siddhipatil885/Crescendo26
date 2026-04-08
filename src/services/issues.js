@@ -108,6 +108,7 @@ export const createIssue = async (issueData) => {
     ];
 
     const newIssue = {
+      title: issueData.title || category,
       claimToken,
       category,
       subcategory: issueData.subcategory || '',
@@ -127,6 +128,7 @@ export const createIssue = async (issueData) => {
       neighbourhood: issueData.neighbourhood || '',
       location: normalizedLocation,
       locationLabel: normalizedLocation.address,
+      locationName: issueData.locationName || normalizedLocation.address || issueData.neighbourhood || '',
       report_source: issueData.report_source || REPORT_SOURCES.APP,
       photo_url: photoUrl,
       beforeImage: photoUrl,
@@ -139,7 +141,8 @@ export const createIssue = async (issueData) => {
         verifiedAt: null,
       },
       verified_by_citizen: false,
-      upvotes: 0,
+      upvotes: issueData.upvotes ?? 0,
+      upvotesCount: issueData.upvotesCount ?? issueData.upvotes ?? 0,
       archived: false,
       timeline,
       createdAt: serverTimestamp(),
@@ -371,6 +374,7 @@ export const upvoteIssue = async (issueId) => {
 
     await updateDoc(issueRef, {
       upvotes: increment(1),
+      upvotesCount: increment(1),
       updatedAt: serverTimestamp(),
       updated_at: serverTimestamp(),
     });

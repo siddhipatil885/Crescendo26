@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import MobileLayout from './components/MobileLayout';
 import Home from './pages/citizen/Home';
@@ -8,6 +8,7 @@ import ReportIssue from './pages/citizen/ReportIssue';
 import ReportConfirmation from './pages/citizen/ReportConfirmation';
 import IssueDetails from './pages/citizen/IssueDetails';
 import Map from './pages/citizen/Map';
+import Feed from './pages/citizen/Feed';
 import useIssueNotifications from './hooks/useIssueNotifications';
 import { trackIssue } from './utils/notifications';
 
@@ -15,6 +16,7 @@ function App() {
   const { t } = useTranslation();
   useIssueNotifications();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [subView, setSubView] = useState(null);
@@ -42,6 +44,11 @@ function App() {
   }, [location.state?.activeTab]);
 
   const handleTabChange = (tabId) => {
+    if (tabId === 'feed') {
+      navigate('/feed');
+      return;
+    }
+
     openTab(tabId);
   };
 
@@ -93,15 +100,8 @@ function App() {
             );
       case 'map':
         return <Map />;
-      case 'profile':
-        return (
-          <div className="flex-col items-center justify-center" style={{ height: '70vh' }}>
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=EEF2FF" style={{ width: 100, height: 100, borderRadius: '50%', marginBottom: '1rem' }} />
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '0.75rem' }}>{t('community_profile')}</h2>
-            <p style={{ fontSize: '0.95rem', color: '#6B7280', textAlign: 'center' }}>{t('change_language_instantly')}</p>
-            
-          </div>
-        );
+      case 'feed':
+        return <Feed />;
       default:
         return <Home onNavigate={handleNavigate} />;
     }
