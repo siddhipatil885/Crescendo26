@@ -131,5 +131,10 @@
   "search_database": "தரவுத்தளத்தில் தேடவும்...",
   "location_unknown": "இடம் தெரியவில்லை",
   "no_description_provided": "விளக்கம் வழங்கப்படவில்லை",
-  "reports_count": "{{count}} அறிக்கைகள்"
+  "reports_count": "{{count}} அறிக்கைகள்",
+  "contractor.no_assigned": "ஒப்பந்ததாரர் நியமிக்கப்படவில்லை",
+  "contractor.fetching_details": "ஒப்பந்ததாரர் விவரங்கள் பெறப்படுகின்றன...",
+  "contractor.verified": "சரிபார்க்கப்பட்டது",
+  "contractor.contact_not_available": "தொடர்பு கிடைக்கவில்லை",
+  "contractor.contact_not_public": "தொடர்பு விவரங்கள் பொதுவாக இல்லை"
 }

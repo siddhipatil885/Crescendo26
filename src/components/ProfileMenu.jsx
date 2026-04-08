@@ -41,13 +41,12 @@ export default function ProfileMenu() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-50 mt-2 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg" role="menu">
+        <div className="absolute right-0 z-50 mt-2 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
           {items.map(({ key, icon: Icon }) => (
             <button
               key={key}
               type="button"
               className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-50"
-              role="menuitem"
               onClick={() => setIsOpen(false)}
             >
               <Icon size={16} />

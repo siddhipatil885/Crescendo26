@@ -131,5 +131,10 @@
   "search_database": "डेटाबेस खोजें...",
   "location_unknown": "स्थान अज्ञात",
   "no_description_provided": "कोई विवरण उपलब्ध नहीं",
-  "reports_count": "{{count}} रिपोर्ट"
+  "reports_count": "{{count}} रिपोर्ट",
+  "contractor.no_assigned": "कोई ठेकेदार नियुक्त नहीं",
+  "contractor.fetching_details": "ठेकेदार का विवरण लाया जा रहा है...",
+  "contractor.verified": "सत्यापित",
+  "contractor.contact_not_available": "संपर्क उपलब्ध नहीं है",
+  "contractor.contact_not_public": "संपर्क विवरण सार्वजनिक नहीं हैं"
 }

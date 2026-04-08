@@ -39,6 +39,8 @@ i18n
     resources,
     fallbackLng: 'en',
     supportedLngs: LANGUAGE_OPTIONS.map((language) => language.code),
+    load: 'languageOnly',
+    nonExplicitSupportedLngs: true,
     defaultNS: 'translation',
     detection: detectionOptions,
     interpolation: {

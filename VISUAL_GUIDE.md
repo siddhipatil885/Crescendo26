@@ -4,7 +4,7 @@
 
 ### STEP 1: Main Category Selection
 
-```
+```text
 ╔══════════════════════════════════════════════════════╗
 ║                                                      ║
 ║   CIVIX Report Issue - Category Selection  [Step 1] ║
@@ -51,7 +51,7 @@ User Action: Taps "Roads" category
 
 ### STEP 2: Subcategory Selection
 
-```
+```text
 ╔══════════════════════════════════════════════════════╗
 ║                                                      ║
 ║   CIVIX Report Issue - Subcategory      [Step 2]     ║
@@ -93,7 +93,7 @@ User Action: Taps "Pothole"
 ## Color & Layout Details
 
 ### Button Sizes
-```
+```text
 Main Categories (STEP 1):
 Width:  100% grid item (2 cols on mobile)
 Height: 120px minimum
@@ -108,7 +108,7 @@ Gap: 0.625rem (10px)
 ```
 
 ### Visual Hierarchy
-```
+```text
 ┌─────────────────────────┐
 │  H2: "What's the issue?"│   Font size: 1.125rem (18px)
 │  P: "Select category"   │   Font size: 0.875rem (14px)
@@ -130,7 +130,7 @@ Gap: 0.625rem (10px)
 ## Color Swatches
 
 ### Orange (Roads)
-```
+```text
 Icon Gradient    Background      Border Selected      Text Selected
 ┌──────────┐     ┌──────────┐    ┌──────────┐        ┌──────────┐
 │ #F97316  │     │ #FEF3C7  │    │ #F97316  │        │ #EA580C  │
@@ -139,7 +139,7 @@ Icon Gradient    Background      Border Selected      Text Selected
 ```
 
 ### Green (Garbage)
-```
+```text
 Icon Gradient    Background      Border Selected      Text Selected
 ┌──────────┐     ┌──────────┐    ┌──────────┐        ┌──────────┐
 │ #22C55E  │     │ #F0FDF4  │    │ #22C55E  │        │ #15803D  │
@@ -148,7 +148,7 @@ Icon Gradient    Background      Border Selected      Text Selected
 ```
 
 ### Yellow (Lights)
-```
+```text
 Icon Gradient    Background      Border Selected      Text Selected
 ┌──────────┐     ┌──────────┐    ┌──────────┐        ┌──────────┐
 │ #EAB308  │     │ #FEFCE8  │    │ #EAB308  │        │ #B45309  │
@@ -157,7 +157,7 @@ Icon Gradient    Background      Border Selected      Text Selected
 ```
 
 ### Red (Danger)
-```
+```text
 Icon Gradient    Background      Border Selected      Text Selected
 ┌──────────┐     ┌──────────┐    ┌──────────┐        ┌──────────┐
 │ #EF4444  │     │ #FEF2F2  │    │ #EF4444  │        │ #DC2626  │
@@ -166,7 +166,7 @@ Icon Gradient    Background      Border Selected      Text Selected
 ```
 
 ### Gray (Other)
-```
+```text
 Icon Gradient    Background      Border Selected      Text Selected
 ┌──────────┐     ┌──────────┐    ┌──────────┐        ┌──────────┐
 │ #9CA3AF  │     │ #F3F4F6  │    │ #9CA3AF  │        │ #4B5563  │
@@ -179,7 +179,7 @@ Icon Gradient    Background      Border Selected      Text Selected
 ## Animation Timeline
 
 ### Step Transition (300ms)
-```
+```text
 0ms:    Category step fully visible
          Y: 0px, Opacity: 100%
 
@@ -194,14 +194,14 @@ Icon Gradient    Background      Border Selected      Text Selected
 ```
 
 ### Button Press (150ms)
-```
+```text
 0ms (press):     scale: 100%, borderColor: gray-300
 75ms (active):   scale: 95%, borderColor: {category}
 150ms (release): scale: 100%, borderColor: {category}
 ```
 
 ### Selection (instant)
-```
+```text
 0ms:     checkmark not visible, opacity: 0%
          border: gray-200
          
@@ -215,7 +215,7 @@ instant: border: {category-color}
 ## Responsive Breakpoints
 
 ### Mobile (< 480px)
-```
+```text
 ┌─────────────────────────┐
 │ ┌──────┐ ┌──────┐       │
 │ │ Road │ │Garbag│       │ 2 columns
@@ -232,7 +232,7 @@ Subcategories: Full width
 ```
 
 ### Tablet (480px - 768px)
-```
+```text
 ┌──────────────────────────────────┐
 │ ┌──────────┐ ┌──────────┐        │
 │ │  Road    │ │ Garbage  │        │ Still 2 columns
@@ -249,7 +249,7 @@ Subcategories: Full width
 ```
 
 ### Desktop (768px+)
-```
+```text
 ┌─────────────────────────────────────────────┐
 │ ┌──────┐ ┌──────┐ ┌──────┐                  │
 │ │ Road │ │Garbag│ │Lights│  3 columns      │
@@ -267,7 +267,7 @@ Subcategories: Multi-column grid (optional)
 ## Icon Details
 
 ### Lucide React Icons (28px)
-```
+```text
 Roads:     AlertTriangle  🔺
            ▲▲▲
            ▲▲▲
@@ -297,7 +297,7 @@ Other:     MoreHorizontal ⋯
 ## Touch Target Sizes
 
 ### Mobile Touch Recommendations (WCAG)
-```
+```text
 Recommended: 48x48px (W3C guidelines)
 Our implementation: 120px + padding = ~140x160px
 
@@ -323,20 +323,20 @@ Touch area: Full button
 ### Shadow Levels
 
 Default State:
-```
+```text
 box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05)
            └─ Subtle, barely visible
 ```
 
 Hover State:
-```
+```text
 box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
             0 2px 4px -1px rgba(0, 0, 0, 0.06)
            └─ More prominent, lifts slightly
 ```
 
 Selected State:
-```
+```text
 box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15)
            └─ Maximum depth, feels pressed
 ```
@@ -346,7 +346,7 @@ box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15)
 ## Typography
 
 ### Font Stack
-```
+```text
 Body Font: "Inter", -apple-system, BlinkMacSystemFont,
            "Segoe UI", Roboto, sans-serif
 
@@ -381,7 +381,7 @@ Uppercase Labels:
 ## Accessibility Features
 
 ### Focus States
-```
+```text
 Default:   border: 2px solid #E5E7EB (gray-200)
 
 Focus:     outline: 2px solid #3B82F6 (blue-500)
@@ -392,7 +392,7 @@ Active:    border: 2px solid {category-color}
 ```
 
 ### Contrast Ratios
-```
+```text
 White background (#FFFFFF)
 Category text (#1F2937):        Ratio 12.5:1 ✓
 
@@ -408,7 +408,7 @@ White (#FFFFFF):                 Ratio 5.2:1 ✓
 ## Loading & Error States
 
 ### Loading Screen (While Preparing)
-```
+```text
 ╔══════════════════════════════════════╗
 ║                                      ║
 ║     ⟳ Preparing complaint details... ║
@@ -420,7 +420,7 @@ White (#FFFFFF):                 Ratio 5.2:1 ✓
 ```
 
 ### Error State
-```
+```text
 ╔══════════════════════════════════════╗
 ║                                      ║
 ║  ⚠ Error message here                ║
@@ -436,7 +436,7 @@ White (#FFFFFF):                 Ratio 5.2:1 ✓
 
 ## Complete User Timeline
 
-```
+```text
 USER SEES:              Time    Component State
 ──────────────────────────────────────────────────
 Category buttons        0s      Category step visible
@@ -461,7 +461,7 @@ TOTAL TIME: 4-5 seconds ✓
 ## Device Examples
 
 ### iPhone 12 Pro (390px)
-```
+```text
 ┌──────────────────────┐
 │ What's the issue?    │
 │ Select category...   │
@@ -480,7 +480,7 @@ TOTAL TIME: 4-5 seconds ✓
 ```
 
 ### iPad (768px)
-```
+```text
 ┌──────────────────────────────────┐
 │ What's the issue?                │
 │ ┌─────┐ ┌─────┐ ┌─────┐        │
@@ -498,7 +498,7 @@ TOTAL TIME: 4-5 seconds ✓
 
 ## Component Hierarchy
 
-```
+```text
 CategorySelector (Main)
 ├── Step: "category"
 │   ├── Heading

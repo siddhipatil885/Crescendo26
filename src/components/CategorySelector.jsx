@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
@@ -97,15 +97,37 @@ export default function CategorySelector({
 }) {
   const { t } = useTranslation();
   const [step, setStep] = useState('category'); // 'category' or 'subcategory'
+  const nextTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (nextTimerRef.current) {
+        clearTimeout(nextTimerRef.current);
+      }
+    };
+  }, []);
+
+  const queueNext = () => {
+    if (!onNext) {
+      return;
+    }
+
+    if (nextTimerRef.current) {
+      clearTimeout(nextTimerRef.current);
+    }
+
+    nextTimerRef.current = setTimeout(() => {
+      nextTimerRef.current = null;
+      onNext();
+    }, 300);
+  };
 
   const handleCategorySelect = (categoryId) => {
     onCategoryChange(categoryId);
     if (categoryId === OTHER_CATEGORY_ID) {
       const otherDefault = SUBCATEGORIES_MAP[OTHER_CATEGORY_ID]?.[0] || null;
       onSubcategoryChange(otherDefault);
-      if (onNext) {
-        setTimeout(() => onNext(), 300);
-      }
+      queueNext();
       setStep('category');
       return;
     }
@@ -116,7 +138,7 @@ export default function CategorySelector({
     onSubcategoryChange(subcategoryItem);
     // Automatically move forward or trigger next step
     if (onNext) {
-      setTimeout(() => onNext(), 300);
+      queueNext();
     } else {
       setStep('category');
     }
@@ -147,6 +169,7 @@ export default function CategorySelector({
 
               return (
                 <button
+                  type="button"
                   key={category.id}
                   onClick={() => handleCategorySelect(category.id)}
                   className={`
@@ -190,6 +213,7 @@ export default function CategorySelector({
       {step === 'subcategory' && selectedCategoryItem && (
         <div className="animate-fadeIn">
           <button
+            type="button"
             onClick={handleBack}
             className="text-sm text-gray-600 hover:text-gray-900 mb-4 font-medium flex items-center gap-1"
           >
@@ -206,6 +230,7 @@ export default function CategorySelector({
 
               return (
                 <button
+                  type="button"
                   key={subcat.id}
                   onClick={() => handleSubcategorySelect(subcat)}
                   className={`

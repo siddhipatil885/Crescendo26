@@ -47,6 +47,15 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const { logout } = useAdminAuth();
 
+  const requiresAfterPhoto = (issue, nextStatus, pendingFile = afterPhotoFile) => {
+    const isResolving = [ISSUE_STATUS.RESOLVED, ISSUE_STATUS.COMPLETED].includes(nextStatus);
+    if (!isResolving) {
+      return false;
+    }
+
+    return !issue?.afterImage && !issue?.afterImageUrl && !pendingFile;
+  };
+
   useEffect(() => {
     const unsubscribe = subscribeToIssues(
       (data) => {
@@ -65,6 +74,10 @@ export default function AdminDashboard() {
   useEffect(() => {
     localStorage.setItem('admin_notifications', notificationsEnabled);
   }, [notificationsEnabled]);
+
+  useEffect(() => {
+    setAfterPhotoFile(null);
+  }, [selectedIssue?.id]);
 
   const handleExportCsv = () => {
     alert("Exporting database to CSV... (Coming soon: Backend integration required)");
@@ -123,7 +136,7 @@ export default function AdminDashboard() {
       const statusLabel = newStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
       
       // Check if resolving and require after photo
-      if ((newStatus === ISSUE_STATUS.RESOLVED || newStatus === ISSUE_STATUS.COMPLETED) && !selectedIssue.afterImage && !afterPhotoFile) {
+      if (requiresAfterPhoto(selectedIssue, newStatus)) {
         alert("Please upload an after photo before marking the issue as resolved.");
         setIsUpdating(false);
         return;
@@ -149,9 +162,18 @@ export default function AdminDashboard() {
 
       await updateIssue(id, updates);
       
-      if (selectedIssue && selectedIssue.id === id) {
-        setSelectedIssue(prev => ({ ...prev, status: newStatus, afterImage: updates.afterImage || prev.afterImage }));
-      }
+      setSelectedIssue((prev) => {
+        if (prev?.id !== id) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          status: newStatus,
+          afterImage: updates.afterImage || prev.afterImage,
+          afterImageUrl: updates.afterImageUrl || prev.afterImageUrl,
+        };
+      });
       
       // Clear the file input
       setAfterPhotoFile(null);
@@ -172,6 +194,12 @@ export default function AdminDashboard() {
 
     if (ids.length === 0) {
       setSelectedRowIds(new Set()); // Clear selection if nothing to update
+      return;
+    }
+
+    const blockedIds = ids.filter((id) => requiresAfterPhoto(issues.find((issue) => issue.id === id), status, null));
+    if (blockedIds.length > 0) {
+      alert("One or more selected issues need an after photo before they can be resolved.");
       return;
     }
 
@@ -870,6 +898,11 @@ export default function AdminDashboard() {
                         {/* Confirm Upload Button */}
                         <button
                           onClick={async () => {
+                            if (isUpdating || !afterPhotoFile) {
+                              return;
+                            }
+
+                            setIsUpdating(true);
                             try {
                               const afterImageUrl = await uploadToCloudinary(afterPhotoFile);
                               await updateIssue(selectedIssue.id, { 
@@ -877,15 +910,23 @@ export default function AdminDashboard() {
                                 afterImageUrl: afterImageUrl,
                                 lastModified: new Date().toISOString()
                               });
-                              setSelectedIssue(prev => ({ 
-                                ...prev, 
-                                afterImage: afterImageUrl, 
-                                afterImageUrl: afterImageUrl 
-                              }));
+                              setSelectedIssue((prev) => {
+                                if (prev?.id !== selectedIssue.id) {
+                                  return prev;
+                                }
+
+                                return {
+                                  ...prev,
+                                  afterImage: afterImageUrl,
+                                  afterImageUrl: afterImageUrl,
+                                };
+                              });
                               setAfterPhotoFile(null);
                               alert('✓ After photo confirmed and uploaded successfully!');
                             } catch (err) {
                               alert('✗ Upload failed: ' + err.message);
+                            } finally {
+                              setIsUpdating(false);
                             }
                           }}
                           disabled={isUpdating}

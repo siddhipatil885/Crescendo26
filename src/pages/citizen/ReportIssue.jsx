@@ -62,7 +62,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
   const previewUrl = draftImage?.preview || '';
   const reportFile = draftImage?.file || null;
   const isOtherCategorySelected = selectedCategory === OTHER_CATEGORY_ID;
-  const normalizedCustomCategory = customCategory.trim();
+  const trimmedCustomCategory = customCategory.trim();
 
   const resolvedDraft = useMemo(() => {
     const aiCategory = overrides.aiCategory || autoData.aiCategory;
@@ -161,12 +161,12 @@ export default function ReportIssue({ draftImage, onSubmit }) {
       return;
     }
 
-    if (isOtherCategorySelected && !normalizedCustomCategory) {
+    if (isOtherCategorySelected && !trimmedCustomCategory) {
       setError(t('please_enter_other_category'));
       return;
     }
 
-    if (isOtherCategorySelected && !SINGLE_WORD_CATEGORY_REGEX.test(normalizedCustomCategory)) {
+    if (isOtherCategorySelected && !SINGLE_WORD_CATEGORY_REGEX.test(trimmedCustomCategory)) {
       setError(t('please_enter_single_word_category'));
       return;
     }
@@ -204,7 +204,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
 
       setSubmitStatus(t('submitting_complaint'));
       const contractor = getContractor(`${resolvedDraft.description} ${resolvedDraft.location}`);
-      const finalCategory = isOtherCategorySelected ? normalizedCustomCategory : resolvedDraft.civixCategory;
+      const finalCategory = isOtherCategorySelected ? trimmedCustomCategory : resolvedDraft.civixCategory;
       const createdIssue = await createIssue({
         category: finalCategory,
         subcategory: resolvedDraft.subcategory,
@@ -321,7 +321,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
                 type="text"
                 value={customCategory}
                 onChange={(event) => {
-                  setCustomCategory(event.target.value.replace(/\s+/g, ''));
+                  setCustomCategory(event.target.value);
                   if (error) {
                     setError('');
                   }

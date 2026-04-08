@@ -3,7 +3,7 @@
 ## At a Glance
 
 ### Main Categories (Step 1)
-```
+```text
 ┌─────────┬───────┬──────┬──────┬────────┐
 │  Roads  │ Garbage│ Lights│Danger│ Other  │
 │   🔺    │  🗑️   │  💡   │  ⚠️  │   ⋯    │
@@ -13,6 +13,7 @@
 ### Complete Subcategory Mapping
 
 #### 🔺 ROADS → 3 Options
+
 | Subcat | AI Category | AI Subcategory |
 |---|---|---|
 | Pothole | Roads & Infrastructure | Roads & Potholes |
@@ -20,6 +21,7 @@
 | Other | Roads & Infrastructure | Traffic Obstruction |
 
 #### 🗑️ GARBAGE → 3 Options
+
 | Subcat | AI Category | AI Subcategory |
 |---|---|---|
 | Overflowing Bin | Sanitation & Public Health | Garbage & Waste |
@@ -27,6 +29,7 @@
 | Other | Sanitation & Public Health | Garbage & Waste |
 
 #### 💡 LIGHTS → 3 Options
+
 | Subcat | AI Category | AI Subcategory |
 |---|---|---|
 | Not Working | Electrical Issues | Streetlight Not Working |
@@ -34,6 +37,7 @@
 | Other | Electrical Issues | Power Outage |
 
 #### ⚠️ DANGER → 3 Options
+
 | Subcat | AI Category | AI Subcategory |
 |---|---|---|
 | Fire Hazard | Illegal Activities & Violations | Unauthorized Construction |
@@ -94,7 +98,7 @@ import CategorySelector from './components/CategorySelector';
 ## UI States
 
 ### Category Button
-```
+```text
 Default:      bg-white border-gray-200
 Hover:        border-gray-300
 Active:       bg-{color}-50 border-2 border-{color}-500 scale-105
@@ -102,7 +106,7 @@ Selected:     ✓ checkmark top-right
 ```
 
 ### Subcategory Button
-```
+```text
 Default:      bg-white border-gray-200
 Hover:        border-gray-300
 Active:       bg-{parentColor}-50 border-2 border-{parentColor}-500
@@ -136,7 +140,7 @@ type SubcategoryItem = {
 
 ## Flow Diagram
 
-```
+```text
 START
   ↓
 [Category Selection Step]

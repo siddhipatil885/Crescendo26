@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import CategorySelector from '../CategorySelector';
+import CategorySelector from './CategorySelector';
 
 export default function CategorySelectorDemo() {
   const [selectedCategory, setSelectedCategory] = useState(null);

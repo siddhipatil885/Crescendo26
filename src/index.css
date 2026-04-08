@@ -367,7 +367,7 @@ z-index: 1000;
   animation: spin 1s linear infinite;
 }
 
-@keyframes fadeIn {
+@keyframes fade-in {
   from {
     opacity: 0;
     transform: translateY(8px);
@@ -379,5 +379,5 @@ z-index: 1000;
 }
 
 .animate-fadeIn {
-  animation: fadeIn 0.3s ease-out;
+  animation: fade-in 0.3s ease-out;
 }

@@ -1,11 +1,10 @@
 import { db } from './firebase';
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, onSnapshot } from 'firebase/firestore';
 
 const CONTRACTORS_COLLECTION = 'contractors';
 
 /**
  * Fetches a contractor by their name (case-insensitive friendly match).
- * Falls back to the first doc if no name match found.
  * @param {string} contractorName – The contractor name stored on the issue.
  * @returns {Promise<Object|null>} Contractor data or null.
  */
@@ -32,7 +31,11 @@ export async function fetchContractorByName(contractorName) {
       );
     }
 
-    const doc = matched || snapshot.docs[0];
+    if (!matched) {
+      return null;
+    }
+
+    const doc = matched;
     return { id: doc.id, ...doc.data() };
   } catch (err) {
     console.error('fetchContractorByName failed:', err);

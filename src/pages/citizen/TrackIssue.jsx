@@ -17,14 +17,14 @@ export default function TrackIssue({ initialToken = "" }) {
   );
   const [issue, setIssue] = useState(null);
   const [loading, setLoading] = useState(Boolean(sanitizedInitialToken));
-  const [error, setError] = useState("");
+  const [errorState, setErrorState] = useState(null);
 
   useEffect(() => {
     setTokenInput(sanitizedInitialToken);
     setTrackedToken(sanitizedInitialToken);
     setSearchVersion(sanitizedInitialToken ? 1 : 0);
     setIssue(null);
-    setError("");
+    setErrorState(null);
     setLoading(Boolean(sanitizedInitialToken));
   }, [sanitizedInitialToken]);
 
@@ -34,7 +34,7 @@ export default function TrackIssue({ initialToken = "" }) {
     }
 
     setLoading(true);
-    setError("");
+    setErrorState(null);
     setIssue(null);
 
     const unsubscribe = subscribeToIssueByToken(
@@ -42,28 +42,26 @@ export default function TrackIssue({ initialToken = "" }) {
       (matchingIssues) => {
         if (!matchingIssues.length) {
           setIssue(null);
-          setError(t('no_issue_found_for_token', { token: trackedToken }));
+          setErrorState({ key: 'no_issue_found_for_token', params: { token: trackedToken } });
           setLoading(false);
           return;
         }
 
         const latestIssue = selectNewestIssue(matchingIssues);
         setIssue(latestIssue);
-        setError("");
+        setErrorState(null);
         setLoading(false);
       },
       (listenerError) => {
         console.error("TrackIssue preview listener error:", listenerError);
         setIssue(null);
-        setError(
-          t('could_not_load_issue')
-        );
+        setErrorState({ key: 'could_not_load_issue' });
         setLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [trackedToken, searchVersion, t]);
+  }, [trackedToken, searchVersion]);
 
   const handleTrackIssue = (event) => {
     event.preventDefault();
@@ -74,7 +72,7 @@ export default function TrackIssue({ initialToken = "" }) {
       setTrackedToken("");
       setIssue(null);
       setLoading(false);
-      setError(t('enter_valid_token'));
+      setErrorState({ key: 'enter_valid_token' });
       return;
     }
 
@@ -161,8 +159,8 @@ export default function TrackIssue({ initialToken = "" }) {
               value={tokenInput}
               onChange={(event) => {
                 setTokenInput(event.target.value);
-                if (error) {
-                  setError("");
+                if (errorState) {
+                  setErrorState(null);
                 }
               }}
               placeholder={t('enter_token_id')}
@@ -265,7 +263,7 @@ export default function TrackIssue({ initialToken = "" }) {
         </div>
       )}
 
-      {!loading && error && (
+      {!loading && errorState && (
         <div
           style={{
             backgroundColor: "#FEE2E2",
@@ -282,7 +280,7 @@ export default function TrackIssue({ initialToken = "" }) {
               {t('issue_not_found')}
             </span>
           </div>
-          <p style={{ fontSize: "0.85rem", lineHeight: "1.5" }}>{error}</p>
+          <p style={{ fontSize: "0.85rem", lineHeight: "1.5" }}>{t(errorState.key, errorState.params)}</p>
         </div>
       )}
     </div>

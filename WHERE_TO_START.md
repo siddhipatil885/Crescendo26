@@ -295,7 +295,7 @@ DELIVERY_SUMMARY.md (for complete overview) ...... 5 min
 ### Path D: Just Need the Info (5 min)
 ```
 1. Skim: README_CATEGORY_SELECTOR.md top & bottom
-2. Find: What you need in QUICKLY_REFERENCE.md
+2. Find: What you need in QUICK_REFERENCE.md
 3. Done!
 ```
 

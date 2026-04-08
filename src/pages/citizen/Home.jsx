@@ -5,17 +5,20 @@ import { subscribeToIssues } from '../../services/issues';
 import MapView from '../../components/map/MapView';
 import useIssueMapData from '../../hooks/useIssueMapData';
 import { computeEscalationStatus, formatCountdown, getIssueImage } from '../../utils/escalation';
+import { ISSUE_STATUS, statusEquals } from '../../utils/constants';
 
 
 const badgeClass = (status) => {
-  switch (status?.toLowerCase()) {
-    case 'pending': return 'badge badge-pending';
-    case 'in_progress': case 'in progress': case 'review': return 'badge badge-review';
-    case 'rti generated': return 'badge badge-review';
-    case 'escalated to mla': return 'badge badge-pending';
-    case 'resolved': case 'completed': case 'verified': return 'badge badge-resolved';
-    default: return 'badge badge-pending';
+  if (statusEquals(status, ISSUE_STATUS.PENDING) || statusEquals(status, ISSUE_STATUS.OPEN) || statusEquals(status, ISSUE_STATUS.ESCALATED_TO_MLA)) {
+    return 'badge badge-pending';
   }
+  if (statusEquals(status, ISSUE_STATUS.IN_PROGRESS) || statusEquals(status, ISSUE_STATUS.REVIEW) || statusEquals(status, ISSUE_STATUS.RTI_GENERATED)) {
+    return 'badge badge-review';
+  }
+  if (statusEquals(status, ISSUE_STATUS.RESOLVED) || statusEquals(status, ISSUE_STATUS.COMPLETED) || statusEquals(status, ISSUE_STATUS.VERIFIED)) {
+    return 'badge badge-resolved';
+  }
+  return 'badge badge-pending';
 };
 
 export default function Home({ onNavigate }) {
@@ -54,12 +57,20 @@ export default function Home({ onNavigate }) {
     return () => clearInterval(intervalId);
   }, []);
 
-  const pendingCount = useMemo(() => issues.filter(i => computeEscalationStatus(i, now).toLowerCase() === 'pending').length, [issues, now]);
+  const pendingCount = useMemo(
+    () => issues.filter((issue) => statusEquals(computeEscalationStatus(issue, now), ISSUE_STATUS.PENDING)).length,
+    [issues, now]
+  );
   const inProgressCount = useMemo(() => {
-    const activeStatuses = ['in progress', 'rti generated', 'escalated to mla'];
-    return issues.filter(i => activeStatuses.includes(computeEscalationStatus(i, now).toLowerCase())).length;
+    const activeStatuses = [ISSUE_STATUS.IN_PROGRESS, ISSUE_STATUS.RTI_GENERATED, ISSUE_STATUS.ESCALATED_TO_MLA];
+    return issues.filter((issue) =>
+      activeStatuses.some((status) => statusEquals(computeEscalationStatus(issue, now), status))
+    ).length;
   }, [issues, now]);
-  const resolvedCount = useMemo(() => issues.filter(i => computeEscalationStatus(i, now).toLowerCase() === 'resolved').length, [issues, now]);
+  const resolvedCount = useMemo(
+    () => issues.filter((issue) => statusEquals(computeEscalationStatus(issue, now), ISSUE_STATUS.RESOLVED)).length,
+    [issues, now]
+  );
   const resolutionRate = useMemo(() => {
     if (issues.length === 0) {
       return null;
@@ -69,22 +80,16 @@ export default function Home({ onNavigate }) {
   }, [issues.length, resolvedCount]);
 
   const statusLabel = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'pending':
-        return t('pending');
-      case 'in_progress':
-      case 'in progress':
-      case 'review':
-      case 'rti generated':
-      case 'escalated to mla':
-        return t('in_progress');
-      case 'resolved':
-      case 'completed':
-      case 'verified':
-        return t('resolved');
-      default:
-        return t('pending');
+    if (statusEquals(status, ISSUE_STATUS.PENDING) || statusEquals(status, ISSUE_STATUS.OPEN) || statusEquals(status, ISSUE_STATUS.ESCALATED_TO_MLA)) {
+      return t('pending');
     }
+    if (statusEquals(status, ISSUE_STATUS.IN_PROGRESS) || statusEquals(status, ISSUE_STATUS.REVIEW) || statusEquals(status, ISSUE_STATUS.RTI_GENERATED)) {
+      return t('in_progress');
+    }
+    if (statusEquals(status, ISSUE_STATUS.RESOLVED) || statusEquals(status, ISSUE_STATUS.COMPLETED) || statusEquals(status, ISSUE_STATUS.VERIFIED)) {
+      return t('resolved');
+    }
+    return t('pending');
   };
 
   return (

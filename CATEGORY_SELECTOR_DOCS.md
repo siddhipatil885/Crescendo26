@@ -98,7 +98,7 @@ interface CategorySelectorProps {
 
 interface SubcategoryItem {
   id: string;                       // Unique identifier
-  label: string;                    // Display text
+  labelKey: string;                 // UI i18n key used for display text
   aiCategory: string;               // Maps to AI_CATEGORY_MAP
   aiSubcategory: string;            // AI subcategory name
 }
@@ -107,35 +107,35 @@ interface SubcategoryItem {
 ## Subcategory Mapping
 
 ### Roads
-```
+```text
 - Pothole → Roads & Infrastructure / Roads & Potholes
 - Road Damage → Roads & Infrastructure / Roads & Potholes
 - Other → Roads & Infrastructure / Traffic Obstruction
 ```
 
 ### Garbage
-```
+```text
 - Overflowing Bin → Sanitation & Public Health / Garbage & Waste
 - Dumped Waste → Sanitation & Public Health / Garbage & Waste
 - Other → Sanitation & Public Health / Garbage & Waste
 ```
 
 ### Lights
-```
+```text
 - Not Working → Electrical Issues / Streetlight Not Working
 - Flickering → Electrical Issues / Streetlight Not Working
 - Other → Electrical Issues / Power Outage
 ```
 
 ### Danger
-```
+```text
 - Fire Hazard → Illegal Activities & Violations / Unauthorized Construction
 - Open Wires → Electrical Issues / Exposed / Hanging Wires
 - Other → General Civic Issues / Other
 ```
 
 ### Other
-```
+```text
 - Skip & Describe → General Civic Issues / Other
 ```
 

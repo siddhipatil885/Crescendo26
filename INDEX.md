@@ -341,7 +341,7 @@
 
 ## 📝 Document Relationships
 
-```
+```text
 README_CATEGORY_SELECTOR.md (Start Here!)
   ├─→ QUICK_REFERENCE.md (Quick lookup)
   │    └─→ IMPLEMENTATION_GUIDE.md (Details)

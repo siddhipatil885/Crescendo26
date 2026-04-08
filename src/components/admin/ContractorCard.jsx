@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, HardHat, Loader2, UserX, Building2, BadgeCheck, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { fetchContractorByName } from '../../services/contractors';
 
 /**
@@ -10,6 +11,7 @@ import { fetchContractorByName } from '../../services/contractors';
  * - If Firestore lookup fails or returns nothing, still shows the raw name.
  */
 export default function ContractorCard({ contractorName }) {
+  const { t } = useTranslation();
   const [enriched, setEnriched] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -43,7 +45,7 @@ export default function ContractorCard({ contractorName }) {
     return (
       <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
         <UserX size={16} className="text-slate-400 shrink-0" />
-        <span className="text-sm text-slate-500 font-medium">No contractor assigned</span>
+        <span className="text-sm text-slate-500 font-medium">{t('contractor.no_assigned')}</span>
       </div>
     );
   }
@@ -53,7 +55,7 @@ export default function ContractorCard({ contractorName }) {
     return (
       <div className="bg-white border border-slate-200 rounded-2xl p-4 flex items-center gap-3">
         <Loader2 size={16} className="animate-spin text-indigo-500 shrink-0" />
-        <span className="text-sm text-slate-500 font-medium">Fetching contractor details…</span>
+        <span className="text-sm text-slate-500 font-medium">{t('contractor.fetching_details')}</span>
       </div>
     );
   }
@@ -63,7 +65,8 @@ export default function ContractorCard({ contractorName }) {
   const phone       = enriched?.contact_number || enriched?.phone || enriched?.contactNumber || null;
   const company     = enriched?.company || enriched?.organisation || null;
   const verified    = enriched?.verified ?? false;
-  const isPublic    = !displayName.toLowerCase().includes('not public');
+  const normalizedDisplayName = typeof displayName === 'string' ? displayName.toLowerCase() : '';
+  const isPublic    = !normalizedDisplayName.includes('not public');
 
   return (
     <div className="bg-gradient-to-br from-indigo-50 to-white border border-indigo-100 rounded-2xl p-5 shadow-sm">
@@ -80,7 +83,7 @@ export default function ContractorCard({ contractorName }) {
             {verified && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded-full">
                 <BadgeCheck size={10} />
-                Verified
+                {t('contractor.verified')}
               </span>
             )}
           </div>
@@ -104,7 +107,7 @@ export default function ContractorCard({ contractorName }) {
             </a>
           ) : (
             <p className="text-slate-400 text-xs mt-2 italic">
-              {isPublic ? 'Contact not available' : 'Contact details are not public'}
+              {isPublic ? t('contractor.contact_not_available') : t('contractor.contact_not_public')}
             </p>
           )}
         </div>

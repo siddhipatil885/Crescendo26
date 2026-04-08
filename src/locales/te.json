@@ -131,5 +131,10 @@
   "search_database": "డేటాబేస్‌లో శోధించండి...",
   "location_unknown": "తెలియని స్థానం",
   "no_description_provided": "వివరణ ఇవ్వబడలేదు",
-  "reports_count": "{{count}} నివేదికలు"
+  "reports_count": "{{count}} నివేదికలు",
+  "contractor.no_assigned": "ఏ కాంట్రాక్టర్ కేటాయించబడలేదు",
+  "contractor.fetching_details": "కాంట్రాక్టర్ వివరాలు తెస్తున్నాం...",
+  "contractor.verified": "ధృవీకరించబడింది",
+  "contractor.contact_not_available": "సంప్రదింపు అందుబాటులో లేదు",
+  "contractor.contact_not_public": "సంప్రదింపు వివరాలు పబ్లిక్ కావు"
 }

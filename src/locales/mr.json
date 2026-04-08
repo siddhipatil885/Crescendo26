@@ -131,5 +131,10 @@
   "search_database": "डेटाबेस शोधा...",
   "location_unknown": "अज्ञात स्थान",
   "no_description_provided": "वर्णन उपलब्ध नाही",
-  "reports_count": "{{count}} तक्रारी"
+  "reports_count": "{{count}} तक्रारी",
+  "contractor.no_assigned": "कोणताही ठेकेदार नियुक्त नाही",
+  "contractor.fetching_details": "ठेकेदाराची माहिती आणली जात आहे...",
+  "contractor.verified": "पडताळलेले",
+  "contractor.contact_not_available": "संपर्क उपलब्ध नाही",
+  "contractor.contact_not_public": "संपर्क तपशील सार्वजनिक नाहीत"
 }

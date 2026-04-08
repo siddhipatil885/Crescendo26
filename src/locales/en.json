@@ -132,4 +132,10 @@
   "location_unknown": "Location Unknown",
   "no_description_provided": "No description provided",
   "reports_count": "{{count}} reports"
+  ,
+  "contractor.no_assigned": "No contractor assigned",
+  "contractor.fetching_details": "Fetching contractor details...",
+  "contractor.verified": "Verified",
+  "contractor.contact_not_available": "Contact not available",
+  "contractor.contact_not_public": "Contact details are not public"
 }

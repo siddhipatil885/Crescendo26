@@ -247,7 +247,7 @@ Issue created with correct category mapping
 - **CSS Animations** - Added to index.css
 
 ### Performance
-- **Bundle Size:** +5KB (unminfied)
+- **Bundle Size:** +5KB (unminified)
 - **Load Time:** < 100ms
 - **Re-renders:** Optimized, minimal unnecessary updates
 - **Animations:** GPU-accelerated for smooth 60fps

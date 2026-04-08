@@ -280,7 +280,7 @@ Crescendo26/
 
 ## 🎯 Performance
 
-- **Bundle Size**: +5KB (unminfied)
+- **Bundle Size**: +5KB (unminified)
 - **Load Time**: < 100ms
 - **Animation**: 60fps (GPU-accelerated)
 - **Selection Time**: 3-5 seconds
