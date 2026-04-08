@@ -27,17 +27,22 @@ export const useAdminAuth = () => {
             // 2. Check for custom Firebase admin claims
             const hasAdminClaim = tokenResult.claims?.admin;
 
+            if (isDevAdmin || hasAdminClaim) {
+                onSuccess?.();
+                return;
+            }
+
             // 3. Fetch for all authorized users from database
             let isDbAdmin = false;
             try {
-                const q = query(collection(db, "admins"), where("email", "==", user.email));
+                const q = query(collection(db, "admins"), where("uid", "==", user.uid));
                 const querySnapshot = await getDocs(q);
                 isDbAdmin = !querySnapshot.empty;
             } catch (fsErr) {
                 console.warn("Firestore admin check failed, falling back to other methods", fsErr.message);
             }
 
-            if (isDevAdmin || hasAdminClaim || isDbAdmin) {
+            if (isDbAdmin) {
                 onSuccess?.();
             } else {
                 await signOut(auth);
