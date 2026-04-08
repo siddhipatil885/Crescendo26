@@ -1,46 +1,81 @@
 export async function getCurrentLocation() {
   try {
-    return await new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        reject(new Error('Geolocation is not supported by this browser'));
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-
-          // Validate that coordinates are finite numbers
-          if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-            reject(new Error('Invalid coordinates received from geolocation'));
-            return;
-          }
-
-          resolve({
-            lat: latitude,
-            lng: longitude,
-          });
-        },
-        (error) => {
-          const errorMessages = {
-            1: 'Location access denied. Please enable location permissions.',
-            2: 'Location service unavailable.',
-            3: 'Location request timed out.',
-          };
-
-          reject(new Error(errorMessages[error.code] || 'Failed to get location'));
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        }
-      );
-    });
+    const location = await getCurrentLocationWithMeta();
+    return {
+      lat: location.lat,
+      lng: location.lng,
+    };
   } catch (error) {
     console.error('Error getting current location:', error);
     throw error;
   }
+}
+
+export async function getCurrentLocationWithMeta() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation is not supported by this browser'));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          reject(new Error('Invalid coordinates received from geolocation'));
+          return;
+        }
+
+        resolve({
+          lat: latitude,
+          lng: longitude,
+          accuracy: Number.isFinite(accuracy) ? accuracy : null,
+        });
+      },
+      (error) => {
+        const errorMessages = {
+          1: 'Location access denied. Please enable location permissions.',
+          2: 'Location service unavailable.',
+          3: 'Location request timed out.',
+        };
+
+        reject(new Error(errorMessages[error.code] || 'Failed to get location'));
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  });
+}
+
+export function getDistanceInMeters(lat1, lng1, lat2, lng2) {
+  const coords = [lat1, lng1, lat2, lng2];
+  const isValidCoordinate = (value) =>
+    value != null &&
+    value !== '' &&
+    Number.isFinite(Number(value));
+
+  if (!coords.every(isValidCoordinate)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const toRadians = (degrees) => (Number(degrees) * Math.PI) / 180;
+  const earthRadiusMeters = 6371000;
+  const deltaLat = toRadians(lat2 - lat1);
+  const deltaLng = toRadians(lng2 - lng1);
+  const startLat = toRadians(lat1);
+  const endLat = toRadians(lat2);
+
+  const a =
+    Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
+    Math.cos(startLat) * Math.cos(endLat) *
+      Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusMeters * c;
 }
 
 function pickNeighbourhood(address = {}) {

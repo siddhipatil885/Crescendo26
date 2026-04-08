@@ -6,7 +6,7 @@ import {
   BarChart3, ListTodo, Download, AlertTriangle, Users, Bell,
   TrendingUp, ClipboardList, Zap, ArrowUpRight, Menu
 } from 'lucide-react';
-import { subscribeToIssues, updateIssue } from '../../services/issues';
+import { assignIssueToWorker, subscribeToIssues, updateIssue } from '../../services/issues';
 import { ISSUE_STATUS, isInProgressStatus, isPendingStatus, isResolvedStatus, statusEquals } from '../../utils/constants';
 import { timeAgo } from '../../utils/formatters';
 import { uploadToCloudinary } from '../../services/storage';
@@ -15,12 +15,38 @@ import { useAdminAuth } from '../auth/AuthFlow';
 import MapView from '../../components/map/MapView';
 import ContractorCard from '../../components/admin/ContractorCard';
 import LanguageSwitcher from '../../components/LanguageSwitcher';
+import { fetchActiveWorkers } from '../../services/workers';
+
+const FALLBACK_DEMO_WORKER = {
+  id: import.meta.env.VITE_DEMO_WORKER_DOC_ID || '',
+  uid: import.meta.env.VITE_DEMO_WORKER_UID || '',
+  name: import.meta.env.VITE_DEMO_WORKER_NAME || 'Demo Worker',
+  email: (import.meta.env.VITE_DEV_WORKER_EMAILS || '').split(',')[0]?.trim() || 'worker@test.com',
+  active: true,
+};
+
+function mergeWorkersWithFallback(workersList) {
+  const nextWorkers = Array.isArray(workersList) ? workersList.filter(Boolean) : [];
+
+  if (!FALLBACK_DEMO_WORKER.id) {
+    return nextWorkers;
+  }
+
+  const alreadyPresent = nextWorkers.some((worker) => worker.id === FALLBACK_DEMO_WORKER.id);
+  if (alreadyPresent) {
+    return nextWorkers;
+  }
+
+  return [...nextWorkers, FALLBACK_DEMO_WORKER];
+}
 
 const statusBadge = (status, t) => {
   const s = status?.toLowerCase();
   if (isPendingStatus(s)) return { bg: 'bg-rose-100', text: 'text-rose-700', label: t('pending') };
+  if (statusEquals(s, ISSUE_STATUS.ASSIGNED)) return { bg: 'bg-sky-100', text: 'text-sky-700', label: 'Assigned' };
   if (isInProgressStatus(s)) return { bg: 'bg-amber-100', text: 'text-amber-700', label: t('in_progress') };
   if (isResolvedStatus(s)) return { bg: 'bg-emerald-100', text: 'text-emerald-700', label: t('resolved') };
+  if (statusEquals(s, ISSUE_STATUS.REJECTED)) return { bg: 'bg-rose-100', text: 'text-rose-700', label: 'Rejected' };
   return { bg: 'bg-slate-100', text: 'text-slate-700', label: t('status_unknown') };
 };
 
@@ -36,6 +62,8 @@ export default function AdminDashboard() {
   const [categoryFilter, setCategoryFilter] = useState('All');
 
   const [selectedIssue, setSelectedIssue] = useState(null);
+  const [workers, setWorkers] = useState([]);
+  const [selectedWorkerId, setSelectedWorkerId] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [selectedRowIds, setSelectedRowIds] = useState(new Set());
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -72,11 +100,37 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const loadWorkers = async () => {
+      try {
+        const workersList = mergeWorkersWithFallback(await fetchActiveWorkers());
+        if (!cancelled) {
+          setWorkers(workersList);
+        }
+      } catch (workerError) {
+        console.warn('Worker list load failed:', workerError);
+        if (!cancelled) {
+          const fallbackWorkers = mergeWorkersWithFallback([]);
+          setWorkers(fallbackWorkers);
+        }
+      }
+    };
+
+    loadWorkers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('admin_notifications', notificationsEnabled);
   }, [notificationsEnabled]);
 
   useEffect(() => {
     setAfterPhotoFile(null);
+    setSelectedWorkerId(selectedIssue?.assignedTo || '');
   }, [selectedIssue?.id]);
 
   const handleExportCsv = () => {
@@ -121,7 +175,7 @@ export default function AdminDashboard() {
       const statusLower = issue.status?.toLowerCase();
       const matchStatus = statusFilter === 'All'
         || (statusFilter === 'Pending' && ['pending', 'open'].includes(statusLower))
-        || (statusFilter === 'In Progress' && ['in_progress', 'in progress', 'review'].includes(statusLower))
+        || (statusFilter === 'In Progress' && ['assigned', 'in_progress', 'in progress', 'review'].includes(statusLower))
         || (statusFilter === 'Resolved' && ['resolved', 'completed', 'verified'].includes(statusLower));
 
       const matchCategory = categoryFilter === 'All' || issue.category === categoryFilter;
@@ -155,7 +209,7 @@ export default function AdminDashboard() {
 
       // Upload after photo if provided
       if (afterPhotoFile) {
-        const afterImageUrl = await uploadToCloudinary(afterPhotoFile);
+        const afterImageUrl = await uploadToCloudinary(afterPhotoFile, id, 'after');
         updates.afterImage = afterImageUrl;
         updates.afterImageUrl = afterImageUrl;
       }
@@ -237,6 +291,42 @@ export default function AdminDashboard() {
   const handleLogout = async () => {
     await logout();
     navigate('/admin/login');
+  };
+
+  const handleAssignWorker = async () => {
+    if (!selectedIssue?.id) {
+      return;
+    }
+
+    const worker = workers.find((entry) => entry.id === selectedWorkerId);
+    const normalizedWorker = worker
+      ? { id: worker.id, name: worker.name || worker.email, uid: worker.uid || null }
+      : null;
+
+    if (!normalizedWorker) {
+      alert('Please select a worker before assigning.');
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      await assignIssueToWorker(selectedIssue.id, normalizedWorker);
+      setSelectedIssue((current) => (
+        current?.id === selectedIssue.id
+          ? {
+              ...current,
+              assignedTo: normalizedWorker.id,
+              assignedWorkerName: normalizedWorker.name,
+              assignedWorkerUid: normalizedWorker.uid,
+              status: ISSUE_STATUS.ASSIGNED,
+            }
+          : current
+      ));
+    } catch (assignmentError) {
+      alert(`Assignment failed: ${assignmentError.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const mapCenter = useMemo(() => {
@@ -784,6 +874,41 @@ export default function AdminDashboard() {
               </div>
 
               <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-sm">
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Worker Assignment</label>
+                <div className="space-y-4">
+                  <select
+                    value={selectedWorkerId}
+                    onChange={(e) => setSelectedWorkerId(e.target.value)}
+                    disabled={isUpdating}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="">Select worker</option>
+                    {workers.map((worker) => {
+                      return (
+                        <option key={worker.id} value={worker.id}>
+                          {worker.name || worker.email || worker.id}
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={handleAssignWorker}
+                    disabled={isUpdating || !selectedWorkerId}
+                    className="w-full bg-sky-600 text-white py-3 px-4 rounded-xl font-semibold hover:bg-sky-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isUpdating ? 'Assigning...' : 'Assign worker'}
+                  </button>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-600">
+                    <div className="font-semibold text-slate-900">Current assignee</div>
+                    <div className="mt-1">{selectedIssue.assignedWorkerName || selectedIssue.assignedTo || 'Not assigned yet'}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-sm">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Operational Status</label>
                 <div className="relative">
                   <select
@@ -792,11 +917,14 @@ export default function AdminDashboard() {
                     disabled={isUpdating}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm cursor-pointer appearance-none"
                   >
+                    <option value={ISSUE_STATUS.REPORTED}>📝 Reported</option>
                     <option value={ISSUE_STATUS.OPEN}>🚩 Open / New</option>
                     <option value={ISSUE_STATUS.PENDING}>⚠️ Pending Validation</option>
+                    <option value={ISSUE_STATUS.ASSIGNED}>👷 Assigned</option>
                     <option value={ISSUE_STATUS.IN_PROGRESS}>🚧 Action In Progress</option>
                     <option value={ISSUE_STATUS.REVIEW}>🔍 Under Review</option>
                     <option value={ISSUE_STATUS.RESOLVED}>✅ Resolved</option>
+                    <option value={ISSUE_STATUS.REJECTED}>❌ Rejected by Citizen</option>
                     <option value={ISSUE_STATUS.COMPLETED}>🏁 Completed</option>
                     <option value={ISSUE_STATUS.VERIFIED}>🛡️ Verified by Citizen</option>
                   </select>
@@ -904,7 +1032,7 @@ export default function AdminDashboard() {
 
                             setIsUpdating(true);
                             try {
-                              const afterImageUrl = await uploadToCloudinary(afterPhotoFile);
+                              const afterImageUrl = await uploadToCloudinary(afterPhotoFile, selectedIssue.id, 'after');
                               await updateIssue(selectedIssue.id, { 
                                 afterImage: afterImageUrl, 
                                 afterImageUrl: afterImageUrl,
@@ -967,6 +1095,32 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               )}
+
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 mb-8 shadow-sm">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Citizen Verification</h4>
+                <div className="space-y-3 text-sm text-slate-700">
+                  <div className="flex items-center justify-between">
+                    <span>Status</span>
+                    <span className="font-semibold capitalize">
+                      {selectedIssue.citizenVerification?.status || 'pending'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Verified At</span>
+                    <span className="font-semibold">
+                      {selectedIssue.citizenVerification?.verifiedAt?.toDate
+                        ? selectedIssue.citizenVerification.verifiedAt.toDate().toLocaleString()
+                        : selectedIssue.citizenVerification?.verifiedAt || 'Awaiting citizen response'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Worker Proof</span>
+                    <span className="font-semibold">
+                      {selectedIssue.afterUploadMeta?.timestamp ? 'Submitted' : 'Pending'}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
               <div className="space-y-6 bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
                 <div>

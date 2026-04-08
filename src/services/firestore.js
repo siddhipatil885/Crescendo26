@@ -65,7 +65,7 @@ export const submitReport = async ({ photo, category, aiDescription, location, n
     const claimToken = crypto.randomUUID();
 
     // Upload report photo to Cloudinary
-    const photoUrl = await uploadToCloudinary(photo);
+    const photoUrl = await uploadToCloudinary(photo, claimToken, "before");
 
     await addDoc(collection(db, "issues"), {
         photo_url: photoUrl,
@@ -121,7 +121,7 @@ export const updateIssueStatus = async (issueId, newStatus, adminNote = "") => {
 // ─────────────────────────────────────────────
 
 export const resolveIssue = async (issueId, resolutionPhoto, adminNote = "") => {
-    const url = await uploadToCloudinary(resolutionPhoto);
+    const url = await uploadToCloudinary(resolutionPhoto, issueId, "after");
 
     await updateDoc(doc(db, "issues", issueId), {
         status: "resolved",
@@ -142,7 +142,7 @@ export const resolveIssue = async (issueId, resolutionPhoto, adminNote = "") => 
 // ─────────────────────────────────────────────
 
 export const verifyFix = async (issueId, verificationPhoto) => {
-    const url = await uploadToCloudinary(verificationPhoto);
+    const url = await uploadToCloudinary(verificationPhoto, issueId, "verification");
 
     await updateDoc(doc(db, "issues", issueId), {
         verification_photo_url: url,

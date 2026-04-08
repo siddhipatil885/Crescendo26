@@ -1,4 +1,4 @@
-import { db } from "./firebase";
+import { auth, db } from "./firebase";
 import { 
   collection, 
   getDocs, 
@@ -19,6 +19,8 @@ import {
 } from "firebase/firestore";
 import { saveToken } from "../utils/token";
 import { getDepartmentForCategory, ISSUE_STATUS, REPORT_SOURCES } from "../utils/constants";
+import { getDistanceInMeters } from "./geolocation";
+import { uploadIssueImage } from "./storage";
 
 const ISSUES_COLLECTION = "issues";
 
@@ -38,6 +40,35 @@ function toClientDate(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function buildTimelineEvent({ type, title, status, note, by }) {
+  return {
+    type,
+    title,
+    status,
+    note: note || "",
+    by: by || auth.currentUser?.uid || "system",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function normalizeIssueLocation(issueData) {
+  const locationValue = issueData.location;
+
+  if (locationValue && typeof locationValue === "object" && !Array.isArray(locationValue)) {
+    return {
+      lat: locationValue.lat ?? issueData.lat ?? null,
+      lng: locationValue.lng ?? issueData.lng ?? null,
+      address: locationValue.address ?? issueData.address ?? issueData.locationLabel ?? "",
+    };
+  }
+
+  return {
+    lat: issueData.lat ?? null,
+    lng: issueData.lng ?? null,
+    address: locationValue || issueData.address || "",
+  };
+}
+
 export const createIssue = async (issueData) => {
   try {
     const issuesRef = collection(db, ISSUES_COLLECTION);
@@ -47,13 +78,29 @@ export const createIssue = async (issueData) => {
     const claimToken = issueData.claimToken || crypto.randomUUID();
     const category = issueData.category || 'Other';
     const department = issueData.department || getDepartmentForCategory(category);
-    const photoUrl = issueData.photo_url || issueData.beforeImage || issueData.beforeImageUrl || null;
+    let uploadedBeforeImageUrl = null;
+
+    if (issueData.beforeImageFile) {
+      try {
+        uploadedBeforeImageUrl = await uploadIssueImage(issueRef.id, issueData.beforeImageFile, "before");
+      } catch (uploadError) {
+        console.warn("Before image upload failed. Continuing without before image.", uploadError);
+        uploadedBeforeImageUrl = null;
+      }
+    }
+    const photoUrl =
+      uploadedBeforeImageUrl ||
+      issueData.photo_url ||
+      issueData.beforeImage ||
+      issueData.beforeImageUrl ||
+      null;
+    const normalizedLocation = normalizeIssueLocation(issueData);
     const storedDeadline = issueData.deadline || Timestamp.fromDate(deadlineClient);
     const timeline = issueData.timeline || [
       {
         type: ISSUE_STATUS.REPORTED,
         title: 'Complaint reported',
-        status: ISSUE_STATUS.OPEN,
+        status: ISSUE_STATUS.REPORTED,
         note: issueData.description || issueData.ai_description || '',
         source: issueData.report_source || REPORT_SOURCES.APP,
         createdAt: createdAtClient.toISOString(),
@@ -73,16 +120,24 @@ export const createIssue = async (issueData) => {
       department,
       description: issueData.description || issueData.ai_description || '',
       ai_description: issueData.ai_description || issueData.description || '',
-      lat: issueData.lat ?? null,
-      lng: issueData.lng ?? null,
+      createdBy: issueData.createdBy || auth.currentUser?.uid || null,
+      assignedTo: issueData.assignedTo || null,
+      lat: normalizedLocation.lat,
+      lng: normalizedLocation.lng,
       neighbourhood: issueData.neighbourhood || '',
-      location: issueData.location || '',
+      location: normalizedLocation,
+      locationLabel: normalizedLocation.address,
       report_source: issueData.report_source || REPORT_SOURCES.APP,
       photo_url: photoUrl,
       beforeImage: photoUrl,
       beforeImageUrl: photoUrl,
       afterImage: issueData.afterImage || null,
       afterImageUrl: issueData.afterImage || null,
+      afterUploadMeta: issueData.afterUploadMeta || null,
+      citizenVerification: issueData.citizenVerification || {
+        status: "pending",
+        verifiedAt: null,
+      },
       verified_by_citizen: false,
       upvotes: 0,
       archived: false,
@@ -92,7 +147,7 @@ export const createIssue = async (issueData) => {
       reported_at: serverTimestamp(),
       updated_at: serverTimestamp(),
       deadline: storedDeadline,
-      status: issueData.status || ISSUE_STATUS.OPEN,
+      status: issueData.status || ISSUE_STATUS.REPORTED,
       ...(issueData.reporter_name && { reporter_name: issueData.reporter_name }),
       ...(issueData.reporter_phone && { reporter_phone: issueData.reporter_phone }),
     };
@@ -177,6 +232,139 @@ export const updateIssue = async (id, updates) => {
   }
 };
 
+export const assignIssueToWorker = async (issueId, worker) => {
+  if (!issueId) {
+    throw new Error("Issue ID is required");
+  }
+
+  if (!worker?.id) {
+    throw new Error("Please select a worker to assign");
+  }
+
+  const issueRef = doc(db, ISSUES_COLLECTION, issueId);
+  const workerDisplayName = worker.name || worker.email || worker.id;
+
+  await updateDoc(issueRef, {
+    assignedTo: worker.id,
+    assignedWorkerName: workerDisplayName,
+    ...(worker.uid ? { assignedWorkerUid: worker.uid } : {}),
+    status: ISSUE_STATUS.ASSIGNED,
+    citizenVerification: {
+      status: "pending",
+      verifiedAt: null,
+    },
+    updatedAt: serverTimestamp(),
+    updated_at: serverTimestamp(),
+    timeline: arrayUnion(
+      buildTimelineEvent({
+        type: "assignment",
+        title: `Assigned to ${workerDisplayName}`,
+        status: ISSUE_STATUS.ASSIGNED,
+        note: "Worker assignment created by admin.",
+      })
+    ),
+  });
+};
+
+export const resolveIssueWithProof = async ({ issueId, file, workerLocation, workerId, workerName }) => {
+  if (!issueId) {
+    throw new Error("Issue ID is required");
+  }
+
+  if (!file) {
+    throw new Error("An after image is required");
+  }
+
+  if (!Number.isFinite(workerLocation?.lat) || !Number.isFinite(workerLocation?.lng)) {
+    throw new Error("Worker location is required");
+  }
+
+  const issue = await getIssueById(issueId);
+  const issueLat = issue.location?.lat ?? issue.lat;
+  const issueLng = issue.location?.lng ?? issue.lng;
+  const distance = getDistanceInMeters(issueLat, issueLng, workerLocation.lat, workerLocation.lng);
+
+  if (!Number.isFinite(distance)) {
+    throw new Error("Issue location is missing or invalid");
+  }
+
+  if (distance > 100) {
+    throw new Error("You must be near the issue location");
+  }
+
+  const afterImageUrl = await uploadIssueImage(issueId, file, "after");
+  const issueRef = doc(db, ISSUES_COLLECTION, issueId);
+
+  await updateDoc(issueRef, {
+    status: ISSUE_STATUS.RESOLVED,
+    afterImage: afterImageUrl,
+    afterImageUrl,
+    afterUploadMeta: {
+      lat: workerLocation.lat,
+      lng: workerLocation.lng,
+      accuracy: workerLocation.accuracy ?? null,
+      uploadedBy: workerId || auth.currentUser?.uid || null,
+      uploadedByName: workerName || auth.currentUser?.displayName || auth.currentUser?.email || null,
+      timestamp: serverTimestamp(),
+    },
+    citizenVerification: {
+      status: "pending",
+      verifiedAt: null,
+    },
+    verified_by_citizen: false,
+    updatedAt: serverTimestamp(),
+    updated_at: serverTimestamp(),
+    timeline: arrayUnion(
+      buildTimelineEvent({
+        type: "resolution_submitted",
+        title: "Worker submitted after proof",
+        status: ISSUE_STATUS.RESOLVED,
+        note: `Resolution proof uploaded within ${Math.round(distance)}m of the issue.`,
+        by: workerId,
+      })
+    ),
+  });
+
+  return {
+    afterImageUrl,
+    distance,
+  };
+};
+
+export const verifyIssueResolution = async (issueId, decision) => {
+  if (!issueId) {
+    throw new Error("Issue ID is required");
+  }
+
+  if (!["accepted", "rejected"].includes(decision)) {
+    throw new Error("Decision must be accepted or rejected");
+  }
+
+  const issueRef = doc(db, ISSUES_COLLECTION, issueId);
+  const accepted = decision === "accepted";
+
+  await updateDoc(issueRef, {
+    status: accepted ? ISSUE_STATUS.RESOLVED : ISSUE_STATUS.IN_PROGRESS,
+    citizenVerification: {
+      status: decision,
+      verifiedAt: serverTimestamp(),
+    },
+    verified_by_citizen: accepted,
+    updatedAt: serverTimestamp(),
+    updated_at: serverTimestamp(),
+    timeline: arrayUnion(
+      buildTimelineEvent({
+        type: "citizen_verification",
+        title: accepted ? "Citizen confirmed the fix" : "Citizen rejected the fix",
+        status: accepted ? ISSUE_STATUS.RESOLVED : ISSUE_STATUS.IN_PROGRESS,
+        note: accepted
+          ? "Issue marked fixed by the reporting citizen."
+          : "Issue moved back to in-progress after citizen rejection.",
+      })
+    ),
+  });
+};
+
 export const upvoteIssue = async (issueId) => {
   try {
     const issueRef = doc(db, ISSUES_COLLECTION, issueId);
@@ -190,6 +378,44 @@ export const upvoteIssue = async (issueId) => {
     console.error(`upvoteIssue failed for issueId ${issueId}:`, error);
     throw error;
   }
+};
+
+export const subscribeToAssignedIssues = (workerIdentifiers, onData, onError) => {
+  const identifiers = Array.isArray(workerIdentifiers)
+    ? workerIdentifiers.filter(Boolean)
+    : [workerIdentifiers].filter(Boolean);
+
+  if (identifiers.length === 0) {
+    onData?.([]);
+    return () => {};
+  }
+
+  const issuesRef = collection(db, ISSUES_COLLECTION);
+
+  return onSnapshot(
+    issuesRef,
+    (snapshot) => {
+      const assignedIssues = snapshot.docs
+        .map(mapIssueDoc)
+        .filter((issue) =>
+          issue.archived !== true &&
+          identifiers.some((identifier) =>
+            [issue.assignedTo, issue.assignedWorkerUid].includes(identifier)
+          )
+        )
+        .sort((leftIssue, rightIssue) => {
+          const leftTime = toClientDate(leftIssue.updatedAt)?.getTime?.() || 0;
+          const rightTime = toClientDate(rightIssue.updatedAt)?.getTime?.() || 0;
+          return rightTime - leftTime;
+        });
+
+      onData?.(assignedIssues);
+    },
+    (error) => {
+      console.error(`Assigned issue listener error (${identifiers.join(",")}):`, error);
+      onError?.(error);
+    }
+  );
 };
 
 /**

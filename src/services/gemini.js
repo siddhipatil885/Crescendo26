@@ -1,12 +1,16 @@
-const AI_ROUTE_URL = import.meta.env.VITE_AI_ROUTE_URL || 'http://localhost:3000/route-issue';
+const AI_ROUTE_URL = import.meta.env.VITE_AI_ROUTE_URL ?? 'http://localhost:3000/route-issue';
 
 export async function routeIssueText(text) {
   if (!text || typeof text !== 'string') {
     return null;
   }
 
+  if (AI_ROUTE_URL == null || AI_ROUTE_URL === '') {
+    return null;
+  }
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
 
   try {
     const response = await fetch(AI_ROUTE_URL, {
@@ -29,6 +33,11 @@ export async function routeIssueText(text) {
     if (error?.name === 'AbortError') {
       throw new Error('Routing request timed out. Please try again.');
     }
+
+    if (error instanceof TypeError) {
+      throw new Error('Routing service is unavailable.');
+    }
+
     throw error;
   } finally {
     clearTimeout(timeoutId);
