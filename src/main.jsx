@@ -40,15 +40,6 @@ function ProtectedRoute({ children }) {
             return
           }
 
-          let isDbAdmin = false
-          try {
-            const q = query(collection(db, 'admins'), where('email', '==', u.email))
-            const querySnapshot = await getDocs(q)
-            isDbAdmin = !querySnapshot.empty
-          } catch (fsErr) {
-            console.warn('Firestore admin check failed in ProtectedRoute', fsErr.message)
-          }
-
           const devAdminEmails = import.meta.env.VITE_DEV_ADMIN_EMAILS
           const isDevAdmin = Boolean(
             devAdminEmails &&
@@ -59,11 +50,25 @@ function ProtectedRoute({ children }) {
               .includes(tokenResult.claims?.email || u.email)
           )
 
+          if (tokenResult.claims?.admin || isDevAdmin) {
+            commitUser(u)
+            return
+          }
+
+          let isDbAdmin = false
+          try {
+            const q = query(collection(db, 'admins'), where('uid', '==', u.uid))
+            const querySnapshot = await getDocs(q)
+            isDbAdmin = !querySnapshot.empty
+          } catch (fsErr) {
+            console.warn('Firestore admin check failed in ProtectedRoute', fsErr.message)
+          }
+
           if (!active || requestId !== authRequestId || auth.currentUser?.uid !== u.uid) {
             return
           }
 
-          if (tokenResult.claims?.admin || isDevAdmin || isDbAdmin) {
+          if (isDbAdmin) {
             commitUser(u)
           } else {
             commitUser(null)

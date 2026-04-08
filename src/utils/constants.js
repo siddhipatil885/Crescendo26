@@ -92,6 +92,7 @@ export const AI_CATEGORY_TO_CIVIX_CATEGORY = {
 export const REPORT_SOURCES = {
   APP: 'app',
   WHATSAPP: 'whatsapp',
+  TELEGRAM: 'telegram',
 };
 
 export const ISSUE_STATUS = {
