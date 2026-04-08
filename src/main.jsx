@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { onAuthStateChanged } from 'firebase/auth'
-import { auth } from './services/firebase'
+import { collection, query, where, getDocs } from 'firebase/firestore'
+import { auth, db } from './services/firebase'
 import App from './App'
 import MobileLayout from './components/MobileLayout'
 import AuthFlow from './pages/auth/AuthFlow'
@@ -39,7 +40,16 @@ function ProtectedRoute({ children }) {
             return
           }
 
-          const devAdminEmails = import.meta.env.VITE_DEV_ADMIN_EMAILS;
+          let isDbAdmin = false
+          try {
+            const q = query(collection(db, 'admins'), where('email', '==', u.email))
+            const querySnapshot = await getDocs(q)
+            isDbAdmin = !querySnapshot.empty
+          } catch (fsErr) {
+            console.warn('Firestore admin check failed in ProtectedRoute', fsErr.message)
+          }
+
+          const devAdminEmails = import.meta.env.VITE_DEV_ADMIN_EMAILS
           const isDevAdmin = Boolean(
             devAdminEmails &&
             devAdminEmails
@@ -47,9 +57,13 @@ function ProtectedRoute({ children }) {
               .map((email) => email.trim())
               .filter(Boolean)
               .includes(tokenResult.claims?.email || u.email)
-          );
-          
-          if (tokenResult.claims?.admin || isDevAdmin) {
+          )
+
+          if (!active || requestId !== authRequestId || auth.currentUser?.uid !== u.uid) {
+            return
+          }
+
+          if (tokenResult.claims?.admin || isDevAdmin || isDbAdmin) {
             commitUser(u)
           } else {
             commitUser(null)
