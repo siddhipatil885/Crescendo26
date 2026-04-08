@@ -1,23 +1,28 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { MoreHorizontal, Clock, RefreshCw, CheckCircle2, MapPin, ListFilter } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { subscribeToIssues } from '../../services/issues';
 import MapView from '../../components/map/MapView';
 import useIssueMapData from '../../hooks/useIssueMapData';
 import { computeEscalationStatus, formatCountdown, getIssueImage } from '../../utils/escalation';
+import { ISSUE_STATUS, statusEquals } from '../../utils/constants';
 
 
 const badgeClass = (status) => {
-  switch (status?.toLowerCase()) {
-    case 'pending': return 'badge badge-pending';
-    case 'in_progress': case 'in progress': case 'review': return 'badge badge-review';
-    case 'rti generated': return 'badge badge-review';
-    case 'escalated to mla': return 'badge badge-pending';
-    case 'resolved': case 'completed': case 'verified': return 'badge badge-resolved';
-    default: return 'badge badge-pending';
+  if (statusEquals(status, ISSUE_STATUS.PENDING) || statusEquals(status, ISSUE_STATUS.OPEN) || statusEquals(status, ISSUE_STATUS.ESCALATED_TO_MLA)) {
+    return 'badge badge-pending';
   }
+  if (statusEquals(status, ISSUE_STATUS.IN_PROGRESS) || statusEquals(status, ISSUE_STATUS.REVIEW) || statusEquals(status, ISSUE_STATUS.RTI_GENERATED)) {
+    return 'badge badge-review';
+  }
+  if (statusEquals(status, ISSUE_STATUS.RESOLVED) || statusEquals(status, ISSUE_STATUS.COMPLETED) || statusEquals(status, ISSUE_STATUS.VERIFIED)) {
+    return 'badge badge-resolved';
+  }
+  return 'badge badge-pending';
 };
 
 export default function Home({ onNavigate }) {
+  const { t } = useTranslation();
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -52,12 +57,20 @@ export default function Home({ onNavigate }) {
     return () => clearInterval(intervalId);
   }, []);
 
-  const pendingCount = useMemo(() => issues.filter(i => computeEscalationStatus(i, now).toLowerCase() === 'pending').length, [issues, now]);
+  const pendingCount = useMemo(
+    () => issues.filter((issue) => statusEquals(computeEscalationStatus(issue, now), ISSUE_STATUS.PENDING)).length,
+    [issues, now]
+  );
   const inProgressCount = useMemo(() => {
-    const activeStatuses = ['in progress', 'rti generated', 'escalated to mla'];
-    return issues.filter(i => activeStatuses.includes(computeEscalationStatus(i, now).toLowerCase())).length;
+    const activeStatuses = [ISSUE_STATUS.IN_PROGRESS, ISSUE_STATUS.RTI_GENERATED, ISSUE_STATUS.ESCALATED_TO_MLA];
+    return issues.filter((issue) =>
+      activeStatuses.some((status) => statusEquals(computeEscalationStatus(issue, now), status))
+    ).length;
   }, [issues, now]);
-  const resolvedCount = useMemo(() => issues.filter(i => computeEscalationStatus(i, now).toLowerCase() === 'resolved').length, [issues, now]);
+  const resolvedCount = useMemo(
+    () => issues.filter((issue) => statusEquals(computeEscalationStatus(issue, now), ISSUE_STATUS.RESOLVED)).length,
+    [issues, now]
+  );
   const resolutionRate = useMemo(() => {
     if (issues.length === 0) {
       return null;
@@ -66,18 +79,31 @@ export default function Home({ onNavigate }) {
     return Math.round((resolvedCount / issues.length) * 100);
   }, [issues.length, resolvedCount]);
 
+  const statusLabel = (status) => {
+    if (statusEquals(status, ISSUE_STATUS.PENDING) || statusEquals(status, ISSUE_STATUS.OPEN) || statusEquals(status, ISSUE_STATUS.ESCALATED_TO_MLA)) {
+      return t('pending');
+    }
+    if (statusEquals(status, ISSUE_STATUS.IN_PROGRESS) || statusEquals(status, ISSUE_STATUS.REVIEW) || statusEquals(status, ISSUE_STATUS.RTI_GENERATED)) {
+      return t('in_progress');
+    }
+    if (statusEquals(status, ISSUE_STATUS.RESOLVED) || statusEquals(status, ISSUE_STATUS.COMPLETED) || statusEquals(status, ISSUE_STATUS.VERIFIED)) {
+      return t('resolved');
+    }
+    return t('pending');
+  };
+
   return (
     <div className="flex-col pb-6">
       {/* Header section */}
       <div className="mt-6">
         <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1F2937', marginBottom: '0.25rem' }}>
-          Neighborhood<br/>
-          <span style={{ color: '#7C8FF0' }}>Issue Dashboard.</span>
+          {t('dashboard')}<br/>
+          <span style={{ color: '#7C8FF0' }}>{t('neighborhood_issue_dashboard')}</span>
         </h1>
         <p className="text-light text-sm" style={{ marginTop: '0.5rem', lineHeight: '1.4' }}>
           {resolutionRate === null
-            ? 'Live updates will appear here as reports come in.'
-            : `${resolutionRate}% of tracked issues are resolved right now.`}
+            ? t('live_updates_pending')
+            : t('resolution_rate_message', { rate: resolutionRate })}
         </p>
       </div>
 
@@ -87,43 +113,43 @@ export default function Home({ onNavigate }) {
         <div style={{ backgroundColor: '#FFE4B5', padding: '1.25rem', borderRadius: '16px' }}>
           <div className="flex-row justify-between items-center mb-4">
             <MoreHorizontal color="#B45309" size={20} />
-            <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#B45309', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>STATUS</span>
+            <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#B45309', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>{t('status')}</span>
           </div>
           <div style={{ fontSize: '2rem', fontWeight: '700', color: '#B45309', marginBottom: '2px' }}>{String(pendingCount).padStart(2, '0')}</div>
-          <div style={{ fontSize: '0.8rem', color: '#B45309' }}>Pending Reports</div>
+          <div style={{ fontSize: '0.8rem', color: '#B45309' }}>{t('pending_reports')}</div>
         </div>
 
         {/* Under Review Card */}
         <div style={{ backgroundColor: '#BBC6FF', padding: '1.25rem', borderRadius: '16px' }}>
           <div className="flex-row justify-between items-center mb-4">
             <RefreshCw color="#1E3A8A" size={20} />
-            <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#1E3A8A', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>IN PROGRESS</span>
+            <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#1E3A8A', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>{t('in_progress_label')}</span>
           </div>
           <div style={{ fontSize: '2rem', fontWeight: '700', color: '#1E3A8A', marginBottom: '2px' }}>{String(inProgressCount).padStart(2, '0')}</div>
-          <div style={{ fontSize: '0.8rem', color: '#1E3A8A' }}>Active Reviews</div>
+          <div style={{ fontSize: '0.8rem', color: '#1E3A8A' }}>{t('active_reviews')}</div>
         </div>
 
         {/* Completed Card */}
         <div style={{ backgroundColor: '#9EF0C2', padding: '1.25rem', borderRadius: '16px' }}>
           <div className="flex-row justify-between items-center mb-4">
             <CheckCircle2 color="#047857" size={20} />
-            <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#047857', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>COMPLETED</span>
+            <span style={{ fontSize: '0.65rem', fontWeight: '700', letterSpacing: '0.05em', color: '#047857', background: 'rgba(255,255,255,0.4)', padding: '4px 8px', borderRadius: '12px' }}>{t('completed')}</span>
           </div>
           <div style={{ fontSize: '2rem', fontWeight: '700', color: '#047857', marginBottom: '2px' }}>{String(resolvedCount).padStart(2, '0')}</div>
-          <div style={{ fontSize: '0.8rem', color: '#047857' }}>Resolved Issues</div>
+          <div style={{ fontSize: '0.8rem', color: '#047857' }}>{t('resolved_issues')}</div>
         </div>
       </div>
 
       {/* Heatmap Section */}
       <div className="mt-8">
         <div className="flex-row justify-between items-center mb-4">
-          <h2 style={{ fontSize: '1.1rem', fontWeight: '600' }}>Active Heatmap</h2>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: '600' }}>{t('active_heatmap')}</h2>
           <button
             type="button"
             onClick={() => onNavigate('map')}
             style={{ fontSize: '0.7rem', fontWeight: '700', color: '#7C8FF0', letterSpacing: '0.05em' }}
           >
-            EXPAND VIEW
+            {t('expand_view')}
           </button>
         </div>
         <div style={{ width: '100%', height: '240px', overflow: 'hidden', borderRadius: '16px', position: 'relative', isolation: 'isolate', zIndex: 1 }}>
@@ -144,7 +170,7 @@ export default function Home({ onNavigate }) {
       {/* Recent Activity */}
       <div className="mt-8">
         <div className="flex-row justify-between items-center mb-4">
-          <h2 style={{ fontSize: '1.1rem', fontWeight: '600' }}>Recent Activity</h2>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: '600' }}>{t('recent_activity')}</h2>
           <ListFilter size={18} color="#6B7280" />
         </div>
 
@@ -156,11 +182,11 @@ export default function Home({ onNavigate }) {
 
         <div className="flex-col gap-4">
           {loading && (
-            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', color: '#6B7280', fontSize: '0.85rem' }}>Loading recent issues...</div>
+            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', color: '#6B7280', fontSize: '0.85rem' }}>{t('loading_recent_issues')}</div>
           )}
 
           {!loading && issues.length === 0 && (
-            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', color: '#6B7280', fontSize: '0.85rem' }}>No issues reported yet.</div>
+            <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', color: '#6B7280', fontSize: '0.85rem' }}>{t('no_issues_reported')}</div>
           )}
 
           {issues.map((issue) => {
@@ -182,19 +208,19 @@ export default function Home({ onNavigate }) {
             return (
               <div key={issue.id} onClick={handleNavigateToDetails} onKeyDown={handleKeyDown} role="button" tabIndex={0} style={{ backgroundColor: 'white', padding: '1rem', borderRadius: '16px', display: 'flex', gap: '1rem', cursor: 'pointer' }}>
                 {previewImage ? (
-                  <img src={previewImage} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} alt={issue.category || 'Issue'} />
+                  <img src={previewImage} style={{ width: '60px', height: '60px', borderRadius: '12px', objectFit: 'cover' }} alt={issue.category || t('report_issue')} />
                 ) : (
                   <div style={{ width: '60px', height: '60px', borderRadius: '12px', backgroundColor: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <MapPin size={24} color="#7C8FF0" />
                   </div>
                 )}
                 <div className="flex-col justify-center flex-1">
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '4px' }}>{issue.category || 'Uncategorized'}</h3>
+                  <h3 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '4px' }}>{issue.category || t('uncategorized')}</h3>
                   <p style={{ fontSize: '0.75rem', color: '#6B7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '180px' }}>
-                    {issue.description || issue.text || 'No description'}
+                    {issue.description || issue.text || t('no_description')}
                   </p>
                   <div className="flex-row items-center gap-2 mt-2">
-                    <span className={badgeClass(computedStatus)}>{computedStatus.toUpperCase()}</span>
+                    <span className={badgeClass(computedStatus)}>{statusLabel(computedStatus).toUpperCase()}</span>
                     <span style={{ fontSize: '0.65rem', color: '#9CA3AF', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <Clock size={10} /> {countdown}
                     </span>

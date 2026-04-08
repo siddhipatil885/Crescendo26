@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertCircle, Loader2, Search } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { subscribeToIssueByToken } from "../../services/issues";
 import { selectNewestIssue } from "../../utils/issueTracking";
 
 export default function TrackIssue({ initialToken = "" }) {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const sanitizedInitialToken = initialToken.trim();
 
@@ -15,14 +17,14 @@ export default function TrackIssue({ initialToken = "" }) {
   );
   const [issue, setIssue] = useState(null);
   const [loading, setLoading] = useState(Boolean(sanitizedInitialToken));
-  const [error, setError] = useState("");
+  const [errorState, setErrorState] = useState(null);
 
   useEffect(() => {
     setTokenInput(sanitizedInitialToken);
     setTrackedToken(sanitizedInitialToken);
     setSearchVersion(sanitizedInitialToken ? 1 : 0);
     setIssue(null);
-    setError("");
+    setErrorState(null);
     setLoading(Boolean(sanitizedInitialToken));
   }, [sanitizedInitialToken]);
 
@@ -32,7 +34,7 @@ export default function TrackIssue({ initialToken = "" }) {
     }
 
     setLoading(true);
-    setError("");
+    setErrorState(null);
     setIssue(null);
 
     const unsubscribe = subscribeToIssueByToken(
@@ -40,22 +42,20 @@ export default function TrackIssue({ initialToken = "" }) {
       (matchingIssues) => {
         if (!matchingIssues.length) {
           setIssue(null);
-          setError(`No issue found for token ID "${trackedToken}".`);
+          setErrorState({ key: 'no_issue_found_for_token', params: { token: trackedToken } });
           setLoading(false);
           return;
         }
 
         const latestIssue = selectNewestIssue(matchingIssues);
         setIssue(latestIssue);
-        setError("");
+        setErrorState(null);
         setLoading(false);
       },
       (listenerError) => {
         console.error("TrackIssue preview listener error:", listenerError);
         setIssue(null);
-        setError(
-          "We could not load this issue right now. Please check the token ID and try again."
-        );
+        setErrorState({ key: 'could_not_load_issue' });
         setLoading(false);
       }
     );
@@ -72,7 +72,7 @@ export default function TrackIssue({ initialToken = "" }) {
       setTrackedToken("");
       setIssue(null);
       setLoading(false);
-      setError("Enter a valid token ID to start tracking your issue.");
+      setErrorState({ key: 'enter_valid_token' });
       return;
     }
 
@@ -113,10 +113,10 @@ export default function TrackIssue({ initialToken = "" }) {
           <Search color="#7C8FF0" size={28} />
         </div>
         <h1 style={{ fontSize: "1.75rem", fontWeight: "700", color: "#1F2937" }}>
-          Track Your Issue
+          {t('track_your_issue')}
         </h1>
         <p className="text-light text-sm mt-2" style={{ lineHeight: "1.5" }}>
-          Enter your token ID to see real-time progress.
+          {t('enter_token_to_track')}
         </p>
       </div>
 
@@ -139,7 +139,7 @@ export default function TrackIssue({ initialToken = "" }) {
             marginBottom: "0.75rem",
           }}
         >
-          Search Complaint
+          {t('search_complaint')}
         </div>
 
         <form className="flex-col gap-3" onSubmit={handleTrackIssue}>
@@ -159,13 +159,13 @@ export default function TrackIssue({ initialToken = "" }) {
               value={tokenInput}
               onChange={(event) => {
                 setTokenInput(event.target.value);
-                if (error) {
-                  setError("");
+                if (errorState) {
+                  setErrorState(null);
                 }
               }}
-              placeholder="Enter token ID"
+              placeholder={t('enter_token_id')}
               autoComplete="off"
-              aria-label="Token ID"
+              aria-label={t('token_id')}
               style={{
                 width: "100%",
                 padding: "0.95rem 1rem 0.95rem 2.7rem",
@@ -188,10 +188,10 @@ export default function TrackIssue({ initialToken = "" }) {
             {loading ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Tracking...
+                {t('tracking')}
               </>
             ) : (
-              "Track Issue"
+              t('track_issue')
             )}
           </button>
         </form>
@@ -210,7 +210,7 @@ export default function TrackIssue({ initialToken = "" }) {
           >
             <Loader2 size={28} color="#7C8FF0" className="animate-spin" />
             <p style={{ fontSize: "0.9rem", color: "#6B7280" }}>
-              Fetching issue preview...
+              {t('fetching_issue_preview')}
             </p>
           </div>
         )}
@@ -244,7 +244,7 @@ export default function TrackIssue({ initialToken = "" }) {
                   boxShadow: "0 0 0 6px rgba(124, 143, 240, 0.12)",
                 }}
               />
-              <span style={{ fontSize: "0.85rem" }}>Live Updates Enabled</span>
+              <span style={{ fontSize: "0.85rem" }}>{t('live_updates_enabled')}</span>
             </div>
 
             <code
@@ -258,12 +258,12 @@ export default function TrackIssue({ initialToken = "" }) {
               {issue.tokenId}
             </code>
 
-            <span style={{ fontSize: "0.8rem" }}>Last updated just now</span>
+            <span style={{ fontSize: "0.8rem" }}>{t('last_updated_just_now')}</span>
           </div>
         </div>
       )}
 
-      {!loading && error && (
+      {!loading && errorState && (
         <div
           style={{
             backgroundColor: "#FEE2E2",
@@ -277,10 +277,10 @@ export default function TrackIssue({ initialToken = "" }) {
           <div className="flex-row items-center gap-2 mb-2">
             <AlertCircle size={18} />
             <span style={{ fontSize: "0.9rem", fontWeight: "700" }}>
-              Issue not found
+              {t('issue_not_found')}
             </span>
           </div>
-          <p style={{ fontSize: "0.85rem", lineHeight: "1.5" }}>{error}</p>
+          <p style={{ fontSize: "0.85rem", lineHeight: "1.5" }}>{t(errorState.key, errorState.params)}</p>
         </div>
       )}
     </div>
