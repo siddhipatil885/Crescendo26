@@ -5,8 +5,12 @@ export async function routeIssueText(text) {
     return null;
   }
 
+  if (!AI_ROUTE_URL) {
+    return null;
+  }
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
 
   try {
     const response = await fetch(AI_ROUTE_URL, {
@@ -29,6 +33,11 @@ export async function routeIssueText(text) {
     if (error?.name === 'AbortError') {
       throw new Error('Routing request timed out. Please try again.');
     }
+
+    if (error instanceof TypeError) {
+      throw new Error('Routing service is unavailable.');
+    }
+
     throw error;
   } finally {
     clearTimeout(timeoutId);

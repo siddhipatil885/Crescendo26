@@ -517,7 +517,11 @@ function ImageCard({ title, imageUrl, badgeBackground }) {
 function mapIssueDetails(data) {
   const normalizedIssue = mapTrackedIssue(data);
   const statusSource =
-    data.verified_by_citizen || data.verified_at ? "verified" : data.status;
+    data.citizenVerification?.status === "accepted" || data.verified_by_citizen || data.verified_at
+      ? "verified"
+      : data.citizenVerification?.status === "rejected"
+        ? "in_progress"
+        : data.status;
 
   return {
     ...normalizedIssue,
@@ -527,9 +531,9 @@ function mapIssueDetails(data) {
       data.description ??
       data.ai_description ??
       "No description was provided for this issue.",
-    location: data.location ?? data.neighbourhood ?? "Location not provided",
-    lat: data.lat != null ? Number(data.lat) : null,
-    lng: data.lng != null ? Number(data.lng) : null,
+    location: data.location?.address ?? data.locationLabel ?? data.neighbourhood ?? "Location not provided",
+    lat: data.location?.lat != null ? Number(data.location.lat) : data.lat != null ? Number(data.lat) : null,
+    lng: data.location?.lng != null ? Number(data.location.lng) : data.lng != null ? Number(data.lng) : null,
     imageBefore:
       data.imageBefore ??
       data.beforeImage ??

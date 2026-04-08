@@ -3,7 +3,6 @@ import { AlertCircle, Loader2, Send } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { routeIssueText } from '../../services/gemini';
 import { getCurrentLocation, reverseGeocode } from '../../services/geolocation';
-import { uploadToCloudinary } from '../../services/storage';
 import { createIssue } from '../../services/issues';
 import {
   getCivixCategoryFromAiClassification,
@@ -186,8 +185,6 @@ export default function ReportIssue({ draftImage, onSubmit }) {
     setError('');
 
     try {
-      const photoUrl = await uploadToCloudinary(reportFile);
-
       setSubmitStatus(t('routing_complaint'));
       setIsRoutingAI(true);
       let routedPriority = undefined;
@@ -222,7 +219,7 @@ export default function ReportIssue({ draftImage, onSubmit }) {
         department: resolvedDraft.department,
         ...(routedPriority ? { priority: routedPriority } : {}),
         contractor,
-        photo_url: photoUrl,
+        beforeImageFile: reportFile,
         report_source: REPORT_SOURCES.APP,
         ...(userDetails.name && { reporter_name: userDetails.name }),
         ...(userDetails.phone && { reporter_phone: userDetails.phone }),

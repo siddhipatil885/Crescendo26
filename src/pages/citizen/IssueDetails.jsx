@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, UserCheck, ShieldCheck, MapPin, Loader2, Camera, Bell, ArrowBigUp } from 'lucide-react';
 import MapView from '../../components/map/MapView';
-import { subscribeToIssue, updateIssue, upvoteIssue } from '../../services/issues';
+import { subscribeToIssue, updateIssue, upvoteIssue, verifyIssueResolution } from '../../services/issues';
 import { uploadToCloudinary } from '../../services/storage';
 import { computeEscalationStatus, formatCountdown, getIssueImage } from '../../utils/escalation';
 import { ACTIVE_ISSUE_STATUSES, ISSUE_STATUS, RESOLVED_ISSUE_STATUSES, isPendingStatus, isResolvedStatus, statusEquals } from '../../utils/constants';
@@ -131,6 +131,18 @@ export default function IssueDetails({ issueId, isAdmin }) {
     }
   };
 
+  const handleCitizenDecision = async (decision) => {
+    setIsUpdating(true);
+    try {
+      await verifyIssueResolution(issueId, decision);
+    } catch (decisionError) {
+      console.error('Citizen verification error:', decisionError);
+      alert(`Verification failed: ${decisionError.message}`);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-col items-center justify-center" style={{ height: '60vh' }}>
@@ -156,6 +168,13 @@ export default function IssueDetails({ issueId, isAdmin }) {
   const rtiText = generateRTI(issue, escalationStatus);
   const escalationStages = ['Pending', 'In Progress', 'RTI Generated', 'Escalated to MLA', 'Resolved'];
   const stageIndex = Math.max(0, escalationStages.findIndex((stage) => stage.toLowerCase() === escalationStatus.toLowerCase()));
+  const issueLat = issue.location?.lat ?? issue.lat;
+  const issueLng = issue.location?.lng ?? issue.lng;
+  const issueAddress = issue.location?.address || issue.locationLabel || issue.neighbourhood || 'Address unavailable';
+  const workerProofPending = statusEquals(currentStatus, ISSUE_STATUS.RESOLVED) && issue.citizenVerification?.status === 'pending';
+  const workerProofLocation = issue.afterUploadMeta?.lat != null && issue.afterUploadMeta?.lng != null
+    ? `${Number(issue.afterUploadMeta.lat).toFixed(5)}, ${Number(issue.afterUploadMeta.lng).toFixed(5)}`
+    : 'Unavailable';
 
   return (
     <div className="flex-col pb-6">
@@ -288,6 +307,43 @@ export default function IssueDetails({ issueId, isAdmin }) {
         )}
       </div>
 
+      {workerProofPending && (
+        <div style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem' }}>
+          <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#92400E', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+            Citizen Verification Required
+          </div>
+          <p style={{ fontSize: '0.85rem', color: '#78350F', lineHeight: '1.5', marginBottom: '1rem' }}>
+            A worker has submitted proof for this issue. Please confirm whether the fix actually happened.
+          </p>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '0.9rem', marginBottom: '1rem', border: '1px solid #FDE68A' }}>
+            <div style={{ fontSize: '0.78rem', color: '#92400E', marginBottom: '0.3rem', fontWeight: '700' }}>Worker proof metadata</div>
+            <div style={{ fontSize: '0.8rem', color: '#4B5563', lineHeight: '1.5' }}>
+              GPS: {workerProofLocation}
+              <br />
+              Uploaded: {issue.afterUploadMeta?.timestamp?.toDate ? issue.afterUploadMeta.timestamp.toDate().toLocaleString() : 'Just now'}
+            </div>
+          </div>
+          <div className="flex-row gap-3">
+            <button
+              type="button"
+              onClick={() => handleCitizenDecision('accepted')}
+              disabled={isUpdating}
+              style={{ flex: 1, backgroundColor: '#047857', color: 'white', padding: '0.85rem', borderRadius: '12px', fontWeight: '700', opacity: isUpdating ? 0.7 : 1 }}
+            >
+              YES, fixed
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCitizenDecision('rejected')}
+              disabled={isUpdating}
+              style={{ flex: 1, backgroundColor: '#B91C1C', color: 'white', padding: '0.85rem', borderRadius: '12px', fontWeight: '700', opacity: isUpdating ? 0.7 : 1 }}
+            >
+              NO, not fixed
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Efficiency Impact */}
       <div style={{ backgroundColor: '#F3F4F6', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem' }}>
         <div style={{ fontSize: '0.65rem', fontWeight: '700', color: '#6B7280', letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: '1rem' }}>ISSUE INFO</div>
@@ -306,7 +362,11 @@ export default function IssueDetails({ issueId, isAdmin }) {
         </div>
         <div className="flex-row justify-between mb-4">
           <span style={{ fontSize: '0.8rem', color: '#4B5563' }}>Location</span>
-          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1F2937' }}>{issue.lat ? `${issue.lat.toFixed(4)}, ${issue.lng.toFixed(4)}` : 'N/A'}</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1F2937' }}>{issueLat != null && issueLng != null ? `${issueLat.toFixed(4)}, ${issueLng.toFixed(4)}` : 'N/A'}</span>
+        </div>
+        <div className="flex-row justify-between mb-4">
+          <span style={{ fontSize: '0.8rem', color: '#4B5563' }}>Address</span>
+          <span style={{ fontSize: '0.9rem', fontWeight: '600', color: '#1F2937', textAlign: 'right', maxWidth: '60%' }}>{issueAddress}</span>
         </div>
 
         <div className="flex-row gap-3 mb-3">
@@ -400,18 +460,24 @@ export default function IssueDetails({ issueId, isAdmin }) {
         </div>
       )}
 
-      {afterImage && (
+      {afterImage && issue.citizenVerification?.status === 'accepted' && (
         <div style={{ backgroundColor: '#ECFDF3', padding: '0.9rem 1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid #D1FAE5', color: '#047857', fontSize: '0.8rem', fontWeight: '600' }}>
-          This issue has been resolved and verified.
+          Citizen has confirmed this issue is fixed.
+        </div>
+      )}
+
+      {issue.citizenVerification?.status === 'rejected' && (
+        <div style={{ backgroundColor: '#FEF2F2', padding: '0.9rem 1rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid #FECACA', color: '#991B1B', fontSize: '0.8rem', fontWeight: '600' }}>
+          Citizen rejected the latest resolution. The issue is back in progress.
         </div>
       )}
 
       {/* Map block */}
       <div style={{ height: '240px', backgroundColor: '#EEF2FF', borderRadius: '16px', position: 'relative', overflow: 'hidden' }}>
-        {issue.lat != null && issue.lng != null ? (
+        {issueLat != null && issueLng != null ? (
           <MapView
             issues={[issue]}
-            center={[Number(issue.lat), Number(issue.lng)]}
+            center={[Number(issueLat), Number(issueLng)]}
             zoom={14}
             variant="compact"
           />
